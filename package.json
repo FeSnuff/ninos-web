@@ -1,0 +1,30 @@
+{
+  "name": "ninos-landscaping-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Nino's Landscaping LLC website: React pre-rendered to static HTML for GitHub Pages.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "build": "tsx scripts/build.tsx",
+    "preview": "node scripts/preview.mjs",
+    "dev": "tsx watch --include ./src --include ./public scripts/dev.tsx",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fontsource-variable/montserrat": "^5.3.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "esbuild": "^0.28.0",
+    "sharp": "^0.35.0",
+    "tsx": "^4.20.0",
+    "typescript": "^6.0.3"
+  }
+}
