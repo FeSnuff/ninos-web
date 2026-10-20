@@ -34,8 +34,9 @@ const readSession = () => {
 }
 
 function Login({ onIn }: { onIn: () => void }) {
-  const [user, setUser] = useState('')
-  const [pass, setPass] = useState('')
+  // demo: credentials come filled in so testers only press "Entrar"
+  const [user, setUser] = useState(DEMO_USER)
+  const [pass, setPass] = useState(DEMO_PASS)
   const [error, setError] = useState('')
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -56,15 +57,15 @@ function Login({ onIn }: { onIn: () => void }) {
         <p className="login__sub">Nino’s Landscaping · acceso solo para personal</p>
         <label className="field">
           <span className="field__label">Usuario</span>
-          <input autoComplete="username" value={user} onChange={(e) => setUser(e.target.value)} autoFocus />
+          <input autoComplete="username" value={user} onChange={(e) => setUser(e.target.value)} />
         </label>
         <label className="field">
           <span className="field__label">Contraseña</span>
           <input type="password" autoComplete="current-password" value={pass} onChange={(e) => setPass(e.target.value)} />
         </label>
         {error ? <p className="login__error" role="alert"><Icon name="alert" size={16} /> {error}</p> : null}
-        <Button kind="primary" type="submit" className="btn--block">Entrar</Button>
-        <p className="login__demo"><Icon name="lock" size={14} /> Versión de demostración · usuario <b>admin</b>, contraseña <b>12345</b></p>
+        <Button kind="primary" type="submit" className="btn--block" autoFocus>Entrar</Button>
+        <p className="login__demo"><Icon name="lock" size={14} /> Demostración: los datos ya vienen puestos, solo presione Entrar</p>
         <a className="login__site" href={SITE_HOME}>← Volver al sitio</a>
       </form>
     </main>
