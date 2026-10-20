@@ -2879,3 +2879,11 @@ button.row:hover {
     flex-basis: 100%;
   }
 }
+
+/* Native dropdown lists: Windows draws them with a light background,
+   so set the options' colors explicitly (white text on light gray was unreadable in dark mode). */
+select option,
+select optgroup {
+  background-color: var(--bg-2);
+  color: var(--text);
+}
