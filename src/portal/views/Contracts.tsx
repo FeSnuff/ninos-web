@@ -1,6 +1,7 @@
 import { useRef, useState, type PointerEvent } from 'react'
 import { business } from '../../site.config'
 import { iso, quoteTotal, today, type Contract, type ContractStatus } from '../data'
+import { TERMS } from '../terms'
 import { useStore } from '../store'
 import { Avatar, Badge, Button, Card, Empty, Field, Header, Icon, Row, Segmented, Sheet, fmtDate, fmtFull, money, rel } from '../ui'
 import { Doc, DocLines } from './Doc'
@@ -32,6 +33,9 @@ export function Contracts() {
     </>
   )
 }
+
+/** Highlighted gap in a document: data the owner still has to confirm */
+const Todo = ({ children }: { children: string }) => <span className="doc__todo">[PENDIENTE: {children}]</span>
 
 /** Signature pad: strokes are kept as SVG path data (the page's security policy blocks data: images). */
 function SignaturePad({ onDone, onCancel }: { onDone: (sig: { path?: string; name?: string }) => void; onCancel: () => void }) {
@@ -95,6 +99,8 @@ export function ContractDetail({ id }: { id: string }) {
     [total > 0, 'Precio total y plan de pagos'],
     [true, 'Aviso del Fondo de Recuperación (Virginia Contractor Transaction Recovery Fund)'],
     [true, 'Cambios por escrito firmados por ambas partes'],
+    [Boolean(TERMS.noticeAddress), 'Aviso de cancelación con dirección (3 días hábiles)', 'Agregue la dirección postal en src/portal/terms.ts (noticeAddress).'],
+    [lic.insured, 'Seguro de responsabilidad confirmado', 'Marque business.license.insured en site.config.ts cuando esté confirmado.'],
     [k.status === 'Firmado', 'Firma del cliente y del contratista antes de empezar'],
   ]
   const missing = checks.filter(([ok]) => !ok).length
@@ -116,29 +122,110 @@ export function ContractDetail({ id }: { id: string }) {
       <div className="editor">
         <Doc kind="Contrato de servicios" number={k.number} date={k.sent ?? iso(today())} client={c}>
           <h3 className="doc__title">{q.title}</h3>
-          <p className="doc__small">Basado en la cotización {q.number}. Trabajo en {c.address}, {c.city}, VA {c.zip}.</p>
-          <h4>1. Trabajo y materiales</h4>
+          <p className="doc__small">Basado en la cotización {q.number}. Vigente desde la firma de ambas partes.</p>
+
+          <h4>1. Partes y propiedad</h4>
+          <p>
+            Este contrato es entre <b>{business.name}</b> («el Contratista»),{' '}
+            {lic.dporNumber ? <>licencia DPOR {lic.dporClass} N.º {lic.dporNumber}{lic.specialties.length ? ` (${lic.specialties.join(', ')})` : ''}</> : <Todo>número, clase y especialidades de la licencia DPOR</Todo>}, con dirección para avisos en{' '}
+            {TERMS.noticeAddress || <Todo>dirección postal del negocio</Todo>}, y <b>{c.name}</b> («el Cliente»), para trabajos en{' '}
+            <b>{c.address}, {c.city}, VA {c.zip}</b> («la Propiedad»).
+          </p>
+
+          <h4>2. Alcance del trabajo y materiales</h4>
           <DocLines lines={q.lines} taxPct={q.taxPct} depositPct={q.depositPct} />
           {q.notes ? <p className="doc__notes">{q.notes}</p> : null}
-          <h4>2. Fechas</h4>
-          <p>Inicio: <b>{fmtFull(k.start)}</b>. Terminación estimada: <b>{fmtFull(k.end)}</b>. El clima puede mover las fechas; avisaremos al cliente antes de cualquier cambio.</p>
-          <h4>3. Plan de pagos</h4>
-          <ul>
-            {q.depositPct ? <li>Depósito de {q.depositPct} % ({money(deposit)}) al firmar, para reservar la fecha.</li> : null}
-            <li>Saldo de {money(total - deposit)} al terminar el trabajo.</li>
-            <li>Pago con tarjeta, transferencia, cheque, Zelle o efectivo.</li>
-          </ul>
-          <h4>4. Condiciones</h4>
-          <ul>
-            <li>Cualquier cambio al trabajo o al precio se hace por escrito y lo firman ambas partes.</li>
-            <li>Antes de excavar se solicita la marcación de servicios públicos (Virginia 811).</li>
-            <li>Al terminar se limpia el área de trabajo y se retiran los restos.</li>
-          </ul>
-          <h4>5. Aviso al consumidor</h4>
-          <p className="doc__small">
-            Virginia mantiene el Virginia Contractor Transaction Recovery Fund, que puede ayudar a consumidores perjudicados por contratistas
-            con licencia. Información: Department of Professional and Occupational Regulation (DPOR).
+          <p>
+            <b>Incluye:</b> preparación del área, los materiales y cantidades indicados arriba, la mano de obra, la limpieza final y el retiro de restos
+            del trabajo. <b>No incluye:</b> trabajos no descritos en esta sección, reparación de daños que ya existían, permisos municipales ni
+            aprobaciones de la asociación de propietarios (HOA), salvo que se indiquen arriba.
           </p>
+
+          <h4>3. Precio y forma de pago</h4>
+          <ul>
+            <li>Precio total: <b>{money(total)}</b>.</li>
+            {q.depositPct ? <li>Depósito de {q.depositPct} % (<b>{money(deposit)}</b>) después de que ambas partes firmen, para reservar la fecha. No se acepta ningún pago antes de la firma.</li> : null}
+            <li>Saldo de <b>{money(total - deposit)}</b> dentro de los {TERMS.balanceDueDays} días siguientes a la terminación del trabajo.</li>
+            <li>Formas de pago: tarjeta, transferencia bancaria (ACH), cheque, Zelle o efectivo, con recibo por cada pago.</li>
+            <li>Los saldos con más de 30 días de atraso pueden generar un cargo de {TERMS.lateFeePct} % mensual. Los cheques devueltos tienen un cargo de {money(TERMS.returnedCheckFee)}.</li>
+            <li>Si un pago acordado no se recibe, el Contratista puede suspender el trabajo con aviso por escrito hasta que se ponga al día.</li>
+          </ul>
+
+          <h4>4. Fechas, clima y retrasos</h4>
+          <p>
+            Inicio: <b>{fmtFull(k.start)}</b>. Terminación estimada: <b>{fmtFull(k.end)}</b>. La lluvia, la tierra saturada o congelada, la
+            disponibilidad de materiales o la espera de la marcación de servicios públicos pueden mover estas fechas. El Contratista avisará al
+            Cliente antes de cualquier cambio y los días perdidos por clima no tienen costo adicional.
+          </p>
+
+          <h4>5. Cambios al trabajo</h4>
+          <p>
+            Cualquier cambio al alcance, los materiales, el precio o las fechas se hace con una orden de cambio por escrito, firmada por ambas partes
+            antes de realizar el trabajo adicional, que indica el costo y el efecto en el calendario.
+          </p>
+
+          <h4>6. Acceso, servicios públicos y líneas privadas</h4>
+          <ul>
+            <li>El Cliente da acceso a las áreas de trabajo, agua y electricidad para las herramientas, y mantiene a sus mascotas aseguradas durante las visitas.</li>
+            <li>Antes de excavar, el Contratista solicita la marcación de servicios públicos a Virginia 811 y espera el plazo de ley.</li>
+            <li>Virginia 811 no marca líneas privadas: riego, iluminación de jardín, cercas invisibles para mascotas, líneas de gas o agua hacia anexos, sistemas sépticos ni drenajes. El Cliente debe señalarlas antes de empezar. El Contratista no responde por daños a líneas privadas que no fueron señaladas, y las reparará al costo si el Cliente lo pide.</li>
+          </ul>
+
+          <h4>7. Condiciones ocultas</h4>
+          <p>
+            Si al excavar se encuentran rocas, raíces grandes, escombros enterrados, materiales de construcción u otras condiciones que no se podían
+            ver al cotizar, el Contratista avisará al Cliente y propondrá una orden de cambio antes de continuar con esa parte del trabajo.
+          </p>
+
+          <h4>8. Garantía</h4>
+          <ul>
+            <li><b>Mano de obra:</b> {TERMS.workmanshipMonths} meses desde la terminación. El Contratista corrige sin costo los defectos de instalación.</li>
+            <li><b>Plantas y césped nuevos:</b> un reemplazo, una sola vez, de lo que muera dentro de los {TERMS.plantMonths} meses, si se siguieron las instrucciones de riego entregadas por escrito.</li>
+            <li><b>Equipos:</b> los componentes de riego e iluminación tienen la garantía de su fabricante.</li>
+            <li><b>No cubre:</b> sequía o restricciones de agua, falta de riego, plagas, animales o enfermedades fuera del control del Contratista, tormentas, inundaciones o heladas extremas, ni daños o cambios hechos por otras personas.</li>
+            <li>La garantía aplica cuando el contrato está pagado en su totalidad.</li>
+          </ul>
+
+          <h4>9. Seguro y responsabilidad</h4>
+          <p>
+            {lic.insured ? 'El Contratista mantiene un seguro de responsabilidad general vigente y entrega el certificado si el Cliente lo pide.' : <Todo>confirmar el seguro de responsabilidad general antes de usar este contrato</Todo>}{' '}
+            El Contratista responde por los daños que cause por negligencia durante el trabajo, y no por condiciones que ya existían en la Propiedad.
+          </p>
+
+          <h4>10. Fotos del trabajo</h4>
+          <p>
+            El Contratista puede fotografiar el trabajo y usar las fotos en su sitio web y redes sociales, sin mostrar la dirección, nombres ni
+            números de casa. El Cliente puede negarse marcando aquí: ☐ No autorizo el uso de fotos.
+          </p>
+
+          <h4>11. Derecho a cancelar</h4>
+          <div className="doc__box">
+            <b>AVISO DE CANCELACIÓN.</b> Si este contrato se firma en su casa, usted puede cancelarlo sin penalidad ni obligación hasta la medianoche
+            del tercer día hábil después de firmarlo. Para cancelar, envíe un aviso por escrito, firmado y con fecha, a{' '}
+            {TERMS.noticeAddress || <Todo>dirección para avisos</Todo>}. Si cancela, se le devolverá cualquier pago que haya hecho. El trabajo no empieza antes de que termine este plazo, salvo una emergencia que usted solicite por escrito.
+            <small>Virginia Home Solicitation Sales Act, Va. Code § 59.1-21.3. Use el texto exacto del aviso que exige § 59.1-21.4.</small>
+          </div>
+
+          <h4>12. Aviso al consumidor</h4>
+          <p>
+            El Virginia Contractor Transaction Recovery Fund puede ayudar a consumidores que sufrieron pérdidas por actos indebidos de contratistas
+            con licencia. Puede verificar licencias y presentar quejas ante el Department of Professional and Occupational Regulation (DPOR),
+            dpor.virginia.gov.
+          </p>
+          <div className="doc__box">
+            <b>Reconocimiento del consumidor.</b> Al firmar, el Cliente confirma que recibió una copia de este contrato, que leyó el aviso sobre el
+            Fondo de Recuperación y que puede verificar la licencia del Contratista en el sitio de DPOR.
+            <small>18VAC50-22-260 B 9. Confirme el texto exigido vigente con un abogado.</small>
+          </div>
+
+          <h4>13. Disposiciones generales</h4>
+          <ul>
+            <li>Este contrato se rige por las leyes del Estado de Virginia.</li>
+            <li>Las partes intentarán resolver cualquier desacuerdo de buena fe durante 15 días. Si no se resuelve, se presentará ante los tribunales de {TERMS.venue}.</li>
+            <li>Este documento, junto con las órdenes de cambio firmadas, es el acuerdo completo entre las partes y reemplaza conversaciones anteriores.</li>
+            <li>Si alguna cláusula no fuera válida, las demás siguen vigentes.</li>
+            <li>Los avisos entre las partes se dan por escrito a las direcciones de este contrato; el email cuenta como aviso por escrito.</li>
+          </ul>
           <div className="doc__signs">
             <div>
               <div className="doc__sig">
@@ -174,7 +261,7 @@ export function ContractDetail({ id }: { id: string }) {
               {k.status === 'Firmado' ? (
                 <>
                   <p className="ok-line"><Icon name="check" size={16} /> Firmado {k.signed ? rel(k.signed) : ''}</p>
-                  <a className="btn btn--primary btn--block" href="#/calendario?nuevo=1"><Icon name="calendar" size={18} /> Programar trabajo</a>
+                  <a className="btn btn--primary btn--block" href={`#/calendario?nuevo=1&dia=${k.start}&cliente=${k.clientId}&titulo=${encodeURIComponent(q.title)}`}><Icon name="calendar" size={18} /> Programar trabajo</a>
                 </>
               ) : null}
               <a className="btn btn--plain btn--block" href={`#/cotizaciones/${q.id}`}><Icon name="quote" size={18} /> Ver cotización {q.number}</a>

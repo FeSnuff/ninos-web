@@ -2193,6 +2193,264 @@ button.row:hover {
   float: right;
 }
 
+.doc__box {
+  margin: 10px 0;
+  padding: 12px 14px;
+  border: 1px solid #c9d6c0;
+  border-radius: 10px;
+  background: #f7faf4;
+  font-size: 13.5px;
+}
+
+.doc__box small {
+  display: block;
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: #6e6e73;
+}
+
+/* data still to confirm: visible on screen and on paper */
+.doc__todo {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: #fff1d6;
+  color: #8f5000;
+  font-weight: 700;
+}
+
+.doc p + p,
+.doc ul + p {
+  margin-top: 8px;
+}
+
+/* ---------- Quote packages & margin ---------- */
+
+.packs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pack {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 13px;
+  border: 0;
+  border-radius: 99px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 650;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: background-color 0.15s, transform 0.1s;
+}
+
+.pack:hover {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.pack:active {
+  transform: scale(0.97);
+}
+
+.margin {
+  display: grid;
+  gap: 2px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 13.5px;
+}
+
+.margin span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.margin b {
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+}
+
+.margin small {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.margin--good { background: var(--green-bg); color: var(--green); }
+.margin--ok { background: var(--orange-bg); color: var(--orange); }
+.margin--low { background: var(--red-bg); color: var(--red-t); }
+
+/* ---------- Area calculator ---------- */
+
+.calc {
+  display: grid;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (min-width: 1000px) {
+  .calc {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+  .calc__result {
+    position: sticky;
+    top: 20px;
+  }
+}
+
+.sheet .calc {
+  grid-template-columns: 1fr;
+}
+
+.sheet .calc .card {
+  background: var(--bg-3);
+  box-shadow: none;
+}
+
+.areas {
+  display: grid;
+  gap: 12px;
+}
+
+.area {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--bg-3);
+}
+
+.sheet .area {
+  background: var(--bg-2);
+}
+
+.area__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.area__label {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  font-weight: 650;
+  padding: 4px 0;
+  outline: none;
+}
+
+.area__label:focus {
+  box-shadow: 0 2px 0 var(--accent);
+}
+
+.area__res {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.calc__sum {
+  margin-top: 12px;
+  font-size: 14px;
+}
+
+.mats {
+  display: grid;
+  gap: 8px;
+}
+
+.mat {
+  padding: 10px 12px;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px var(--sep);
+}
+
+.mat.is-on {
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+  background: var(--accent-soft);
+}
+
+.mat small {
+  color: var(--text-2);
+}
+
+.mat__param {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0 26px;
+  font-size: 13.5px;
+}
+
+.mat__param label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mat__param input {
+  width: 70px;
+  min-height: 34px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--bg-2);
+  text-align: right;
+}
+
+.calc__lines {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.calc__lines li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.calc__lines small {
+  display: block;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+.calc__total {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.calc__total small {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.calc__total b {
+  font-size: 28px;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.calc__total span {
+  font-size: 13px;
+}
+
+.calc__result .btn {
+  margin: 4px 0 10px;
+}
+
 /* ---------- Signature pad ---------- */
 
 .sigpad {

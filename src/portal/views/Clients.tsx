@@ -138,7 +138,7 @@ export function ClientDetail({ id }: { id: string }) {
     <>
       <Header back={{ href: '#/clientes', label: 'Clientes' }} title={c.name} sub={c.contact} actions={
         <>
-          <a className="btn btn--secondary" href={`#/calendario?nuevo=1`}><Icon name="calendar" size={18} /> Programar</a>
+          <a className="btn btn--secondary" href={`#/calendario?nuevo=1&cliente=${c.id}`}><Icon name="calendar" size={18} /> Programar</a>
           <a className="btn btn--primary" href={`#/cotizaciones/nueva?cliente=${c.id}`}><Icon name="quote" size={18} /> Cotizar</a>
         </>
       } />

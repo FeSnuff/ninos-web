@@ -12,7 +12,7 @@ import { Button, Icon, Sheet, type IconName } from './ui'
 import { Today } from './views/Today'
 import { CalendarView } from './views/Calendar'
 import { ClientDetail, Clients } from './views/Clients'
-import { QuoteEditor, Quotes } from './views/Quotes'
+import { CalculatorPage, QuoteEditor, Quotes } from './views/Quotes'
 import { ContractDetail, Contracts } from './views/Contracts'
 import { InvoiceDetail, Invoices } from './views/Invoices'
 import { Messages, More, PriceBook } from './views/More'
@@ -79,6 +79,7 @@ const NAV: Nav[] = [
   { path: 'calendario', label: 'Calendario', icon: 'calendar', tab: true },
   { path: 'clientes', label: 'Clientes', icon: 'users', tab: true },
   { path: 'cotizaciones', label: 'Cotizaciones', icon: 'quote', tab: true },
+  { path: 'calculadora', label: 'Calculadora por área', icon: 'ruler' },
   { path: 'contratos', label: 'Contratos', icon: 'sign' },
   { path: 'facturas', label: 'Facturas y pagos', icon: 'card' },
   { path: 'mensajes', label: 'Mensajes', icon: 'message' },
@@ -125,6 +126,7 @@ function Shell({ onOut }: { onOut: () => void }) {
     case 'facturas': view = id ? <InvoiceDetail key={id} id={id} /> : <Invoices query={query} />; break
     case 'mensajes': view = <Messages />; break
     case 'precios': view = <PriceBook />; break
+    case 'calculadora': view = <CalculatorPage />; break
     case 'mas': view = <More onOut={onOut} />; break
     default: view = <Today />
   }

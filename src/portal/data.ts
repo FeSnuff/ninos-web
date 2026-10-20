@@ -25,9 +25,13 @@ export type Client = {
 }
 
 export type Unit = 'visita' | 'servicio' | 'yd³' | 'pie²' | 'pie lin.' | 'hora' | 'c/u'
-export type PriceItem = { id: string; name: string; unit: Unit; price: number; group: string }
+/** `cost` = estimated cost to Nino (materials + labor); internal, never shown to clients */
+export type PriceItem = { id: string; name: string; unit: Unit; price: number; cost: number; group: string }
 
-export type Line = { id: string; desc: string; qty: number; unit: Unit; price: number }
+export type Line = { id: string; desc: string; qty: number; unit: Unit; price: number; cost?: number }
+
+/** One-tap bundles of price-book items for the quote editor */
+export type Package = { id: string; name: string; note: string; repeat?: 'Semanal' | 'Quincenal' | 'Mensual'; items: { priceId: string; qty: number }[] }
 
 export type QuoteStatus = 'Borrador' | 'Enviada' | 'Vista' | 'Aprobada' | 'Rechazada'
 export type Quote = {
@@ -103,6 +107,7 @@ export type Template = { id: string; name: string; text: string }
 export type Db = {
   clients: Client[]
   prices: PriceItem[]
+  packages: Package[]
   quotes: Quote[]
   contracts: Contract[]
   jobs: Job[]
@@ -141,6 +146,16 @@ export const nextWorkday = (s: string) => {
 
 export const lineTotal = (l: Line) => l.qty * l.price
 export const subtotal = (lines: Line[]) => lines.reduce((a, l) => a + lineTotal(l), 0)
+/** estimated margin over the lines that have a known cost (null when none do) */
+export function margin(lines: Line[]) {
+  const known = lines.filter((l) => l.cost !== undefined)
+  const revenue = subtotal(known)
+  if (!known.length || !revenue) return null
+  const cost = known.reduce((a, l) => a + l.qty * (l.cost ?? 0), 0)
+  return { profit: revenue - cost, pct: Math.round(((revenue - cost) / revenue) * 100), partial: known.length < lines.length }
+}
+/** price-book item → quote line */
+export const lineFrom = (p: PriceItem, qty = 1): Line => ({ id: uid('l'), desc: p.name, qty, unit: p.unit, price: p.price, cost: p.cost })
 export const quoteTotal = (q: Pick<Quote, 'lines' | 'taxPct'>) => subtotal(q.lines) * (1 + q.taxPct / 100)
 export const invoiceTotal = (i: Invoice) => subtotal(i.lines)
 export const invoicePaid = (i: Invoice) => i.payments.reduce((a, p) => a + p.amount, 0)
@@ -186,31 +201,40 @@ export function seed(): Db {
   ]
 
   const prices: PriceItem[] = [
-    { id: 'p1', group: 'Césped', name: 'Corte, bordes y soplado (lote estándar)', unit: 'visita', price: 55 },
-    { id: 'p2', group: 'Césped', name: 'Aireación y resiembra', unit: 'servicio', price: 195 },
-    { id: 'p3', group: 'Césped', name: 'Instalación de césped en rollo', unit: 'pie²', price: 1.85 },
-    { id: 'p4', group: 'Jardineras', name: 'Mulch instalado (negro o café)', unit: 'yd³', price: 95 },
-    { id: 'p5', group: 'Jardineras', name: 'Piedra de río instalada', unit: 'yd³', price: 165 },
-    { id: 'p6', group: 'Jardineras', name: 'Malla antimaleza', unit: 'pie²', price: 0.65 },
-    { id: 'p7', group: 'Jardineras', name: 'Borde de adoquín', unit: 'pie lin.', price: 14 },
-    { id: 'p8', group: 'Jardineras', name: 'Plantas (arbusto 3 gal.)', unit: 'c/u', price: 48 },
-    { id: 'p9', group: 'Poda', name: 'Recorte de arbustos y setos', unit: 'hora', price: 65 },
-    { id: 'p10', group: 'Limpiezas', name: 'Limpieza de otoño', unit: 'servicio', price: 280 },
-    { id: 'p11', group: 'Limpiezas', name: 'Recogida de hojas', unit: 'servicio', price: 180 },
-    { id: 'p12', group: 'Riego', name: 'Arranque de primavera', unit: 'servicio', price: 95 },
-    { id: 'p13', group: 'Riego', name: 'Cierre de invierno (blowout)', unit: 'servicio', price: 85 },
-    { id: 'p14', group: 'Riego', name: 'Reparación de riego', unit: 'hora', price: 85 },
-    { id: 'p15', group: 'Riego', name: 'Cabezal de aspersor', unit: 'c/u', price: 28 },
-    { id: 'p16', group: 'Riego', name: 'Caja de válvulas', unit: 'c/u', price: 145 },
-    { id: 'p17', group: 'Drenaje', name: 'Drenaje francés', unit: 'pie lin.', price: 38 },
-    { id: 'p18', group: 'Drenaje', name: 'Bajante enterrada con salida pop-up', unit: 'c/u', price: 425 },
-    { id: 'p19', group: 'Iluminación', name: 'Luz LED de camino', unit: 'c/u', price: 165 },
-    { id: 'p20', group: 'Iluminación', name: 'Transformador de bajo voltaje', unit: 'c/u', price: 350 },
+    { id: 'p1', group: 'Césped', name: 'Corte, bordes y soplado (lote estándar)', unit: 'visita', price: 55, cost: 24 },
+    { id: 'p2', group: 'Césped', name: 'Aireación y resiembra', unit: 'servicio', price: 195, cost: 95 },
+    { id: 'p3', group: 'Césped', name: 'Instalación de césped en rollo', unit: 'pie²', price: 1.85, cost: 0.95 },
+    { id: 'p4', group: 'Jardineras', name: 'Mulch instalado (negro o café)', unit: 'yd³', price: 95, cost: 52 },
+    { id: 'p5', group: 'Jardineras', name: 'Piedra de río instalada', unit: 'yd³', price: 165, cost: 98 },
+    { id: 'p6', group: 'Jardineras', name: 'Malla antimaleza', unit: 'pie²', price: 0.65, cost: 0.28 },
+    { id: 'p7', group: 'Jardineras', name: 'Borde de adoquín', unit: 'pie lin.', price: 14, cost: 7.5 },
+    { id: 'p8', group: 'Jardineras', name: 'Plantas (arbusto 3 gal.)', unit: 'c/u', price: 48, cost: 26 },
+    { id: 'p9', group: 'Poda', name: 'Recorte de arbustos y setos', unit: 'hora', price: 65, cost: 34 },
+    { id: 'p10', group: 'Limpiezas', name: 'Limpieza de otoño', unit: 'servicio', price: 280, cost: 140 },
+    { id: 'p11', group: 'Limpiezas', name: 'Recogida de hojas', unit: 'servicio', price: 180, cost: 90 },
+    { id: 'p12', group: 'Riego', name: 'Arranque de primavera', unit: 'servicio', price: 95, cost: 42 },
+    { id: 'p13', group: 'Riego', name: 'Cierre de invierno (blowout)', unit: 'servicio', price: 85, cost: 38 },
+    { id: 'p14', group: 'Riego', name: 'Reparación de riego', unit: 'hora', price: 85, cost: 44 },
+    { id: 'p15', group: 'Riego', name: 'Cabezal de aspersor', unit: 'c/u', price: 28, cost: 12 },
+    { id: 'p16', group: 'Riego', name: 'Caja de válvulas', unit: 'c/u', price: 145, cost: 78 },
+    { id: 'p17', group: 'Drenaje', name: 'Drenaje francés', unit: 'pie lin.', price: 38, cost: 21 },
+    { id: 'p18', group: 'Drenaje', name: 'Bajante enterrada con salida pop-up', unit: 'c/u', price: 425, cost: 230 },
+    { id: 'p19', group: 'Iluminación', name: 'Luz LED de camino', unit: 'c/u', price: 165, cost: 82 },
+    { id: 'p20', group: 'Iluminación', name: 'Transformador de bajo voltaje', unit: 'c/u', price: 350, cost: 190 },
   ]
-  const P = (id: string, qty: number): Line => {
-    const p = prices.find((x) => x.id === id)!
-    return { id: uid('l'), desc: p.name, qty, unit: p.unit, price: p.price }
-  }
+  const P = (id: string, qty: number): Line => lineFrom(prices.find((x) => x.id === id)!, qty)
+
+  const packages: Package[] = [
+    { id: 'k-sem', name: 'Mantenimiento semanal', note: 'Corte, bordes y soplado cada semana (abr–nov)', repeat: 'Semanal', items: [{ priceId: 'p1', qty: 1 }] },
+    { id: 'k-quin', name: 'Mantenimiento quincenal', note: 'Cada dos semanas, ideal en verano y otoño', repeat: 'Quincenal', items: [{ priceId: 'p1', qty: 1 }] },
+    { id: 'k-prim', name: 'Paquete de primavera', note: 'Arranque de riego, mulch fresco y recorte', items: [{ priceId: 'p12', qty: 1 }, { priceId: 'p4', qty: 4 }, { priceId: 'p9', qty: 2 }] },
+    { id: 'k-oto', name: 'Otoño completo', note: 'Limpieza, hojas, aireación y resiembra', items: [{ priceId: 'p10', qty: 1 }, { priceId: 'p11', qty: 1 }, { priceId: 'p2', qty: 1 }] },
+    { id: 'k-cierre', name: 'Cierre de riego', note: 'Winterización antes de la primera helada', items: [{ priceId: 'p13', qty: 1 }] },
+    { id: 'k-jard', name: 'Refresh de jardineras', note: 'Mulch, 3 plantas nuevas y recorte', items: [{ priceId: 'p4', qty: 3 }, { priceId: 'p8', qty: 3 }, { priceId: 'p9', qty: 2 }] },
+    { id: 'k-piedra', name: 'Piedra de río (townhouse)', note: 'Malla, piedra y borde de adoquín, como el proyecto de la galería', items: [{ priceId: 'p6', qty: 120 }, { priceId: 'p5', qty: 2 }, { priceId: 'p7', qty: 46 }] },
+    { id: 'k-dren', name: 'Drenaje de bajante', note: 'Bajante enterrada con salida pop-up', items: [{ priceId: 'p18', qty: 1 }, { priceId: 'p17', qty: 20 }] },
+    { id: 'k-luz', name: 'Iluminación básica', note: '6 luces de camino y transformador', items: [{ priceId: 'p19', qty: 6 }, { priceId: 'p20', qty: 1 }] },
+  ]
 
   const quotes: Quote[] = [
     { id: 'q1', number: 'Q-1048', clientId: 'c7', title: 'Jardineras de piedra de río (townhouse)', status: 'Enviada', created: d(-6), sent: d(-5), validDays: 30, lines: [P('p6', 120), P('p5', 2), P('p7', 46)], taxPct: 0, depositPct: 30, notes: 'Incluye retirar maleza y nivelar. Ambos lados de la escalera.' },
@@ -305,5 +329,5 @@ export function seed(): Db {
     { id: 't6', name: 'Pedir reseña', text: 'Gracias por confiar en Nino’s Landscaping. Si quedó contento, ¿nos deja una reseña en Google? {link}' },
   ]
 
-  return { clients, prices, quotes, contracts, jobs, invoices, templates, activity: [] }
+  return { clients, prices, packages, quotes, contracts, jobs, invoices, templates, activity: [] }
 }

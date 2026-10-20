@@ -15,6 +15,7 @@ export function More({ onOut }: { onOut: () => void }) {
     <>
       <Header title="Más" />
       <div className="group">
+        <Row href="#/calculadora" lead={<span className="tile-icon tone-teal"><Icon name="ruler" size={17} /></span>} title="Calculadora por área" />
         <Row href="#/contratos" lead={<span className="tile-icon tone-indigo"><Icon name="sign" size={17} /></span>} title="Contratos" trail={unsigned ? <Badge tone="blue">{unsigned} por firmar</Badge> : null} />
         <Row href="#/facturas" lead={<span className="tile-icon tone-green"><Icon name="card" size={17} /></span>} title="Facturas y pagos" trail={overdue ? <Badge tone="red">{overdue} vencidas</Badge> : null} />
         <Row href="#/mensajes" lead={<span className="tile-icon tone-blue"><Icon name="message" size={17} /></span>} title="Mensajes y plantillas" />
@@ -112,14 +113,31 @@ const UNITS: Unit[] = ['visita', 'servicio', 'yd³', 'pie²', 'pie lin.', 'hora'
 export function PriceBook() {
   const { db, update, toast } = useStore()
   const [adding, setAdding] = useState(false)
-  const [f, setF] = useState({ name: '', group: 'Césped', unit: 'servicio' as Unit, price: '' })
+  const [f, setF] = useState({ name: '', group: 'Césped', unit: 'servicio' as Unit, price: '', cost: '' })
   const groups = [...new Set(db.prices.map((p) => p.group))]
   const setPrice = (id: string, price: number) => update((d) => { d.prices.find((p) => p.id === id)!.price = price })
   return (
     <>
       <Header title="Lista de precios" sub="Los precios que usa para cotizar. Cambiarlos aquí no altera cotizaciones ya enviadas." actions={<Button kind="primary" icon="plus" onClick={() => setAdding(true)}>Agregar</Button>} />
       <p className="notice-soft"><Icon name="alert" size={16} /> Precios de ejemplo para la demostración: ajústelos a sus costos reales.</p>
-      <div className="price-groups">
+      <Card title="Paquetes rápidos" action={<span className="muted small">Aparecen en el editor de cotizaciones</span>} flush>
+        <div className="group group--flat">
+          {db.packages.map((k) => {
+            const total = k.items.reduce((a, it) => a + (db.prices.find((p) => p.id === it.priceId)?.price ?? 0) * it.qty, 0)
+            return (
+              <Row
+                key={k.id}
+                lead={<span className="tile-icon tone-green"><Icon name="box" size={16} /></span>}
+                title={<>{k.name} {k.repeat ? <Badge tone="green">{k.repeat}</Badge> : null}</>}
+                sub={k.items.map((it) => `${it.qty} × ${db.prices.find((p) => p.id === it.priceId)?.name ?? '?'}`).join(' · ')}
+                trail={<span className="row-actions"><b>{money(total)}</b><button type="button" className="icon-btn" aria-label={`Quitar paquete ${k.name}`} onClick={() => { update((d) => { d.packages = d.packages.filter((x) => x.id !== k.id) }); toast('Paquete quitado') }}><Icon name="trash" size={15} /></button></span>}
+              />
+            )
+          })}
+        </div>
+        <p className="card__foot muted small">Para crear uno: arme una cotización y use «Guardar como paquete».</p>
+      </Card>
+      <div className="price-groups mt">
         {groups.map((g) => (
           <Card key={g} title={g} flush>
             <div className="group group--flat">
@@ -127,7 +145,7 @@ export function PriceBook() {
                 <div key={p.id} className="row">
                   <span className="row__main">
                     <span className="row__title">{p.name}</span>
-                    <span className="row__sub">por {p.unit}</span>
+                    <span className="row__sub">por {p.unit} · costo {money(p.cost)} · margen {p.price ? Math.round(((p.price - p.cost) / p.price) * 100) : 0} %</span>
                   </span>
                   <label className="price-input">
                     <span aria-hidden="true">$</span>
@@ -140,7 +158,7 @@ export function PriceBook() {
         ))}
       </div>
       <Sheet open={adding} onClose={() => setAdding(false)} title="Nuevo servicio o material" footer={<><Button kind="plain" onClick={() => setAdding(false)}>Cancelar</Button><Button kind="primary" type="submit" form="new-price">Agregar</Button></>}>
-        <form id="new-price" className="form" onSubmit={(e) => { e.preventDefault(); const id = uid('p'); update((d) => { d.prices.push({ id, name: f.name, group: f.group, unit: f.unit, price: Number(f.price) }) }); toast('Agregado a la lista'); setAdding(false); setF({ ...f, name: '', price: '' }) }}>
+        <form id="new-price" className="form" onSubmit={(e) => { e.preventDefault(); const id = uid('p'); update((d) => { d.prices.push({ id, name: f.name, group: f.group, unit: f.unit, price: Number(f.price), cost: Number(f.cost) || 0 }) }); toast('Agregado a la lista'); setAdding(false); setF({ ...f, name: '', price: '' }) }}>
           <Field label="Nombre"><input required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
           <div className="form__row">
             <Field label="Grupo">
@@ -154,7 +172,10 @@ export function PriceBook() {
               </select>
             </Field>
           </div>
-          <Field label="Precio ($)"><input required type="number" min={0} step="0.01" inputMode="decimal" value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} /></Field>
+          <div className="form__row">
+            <Field label="Precio al cliente ($)"><input required type="number" min={0} step="0.01" inputMode="decimal" value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} /></Field>
+            <Field label="Su costo ($)" hint="Material + mano de obra. Solo interno."><input type="number" min={0} step="0.01" inputMode="decimal" value={f.cost} onChange={(e) => setF({ ...f, cost: e.target.value })} /></Field>
+          </div>
         </form>
       </Sheet>
     </>

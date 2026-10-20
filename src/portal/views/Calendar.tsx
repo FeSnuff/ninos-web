@@ -172,14 +172,14 @@ export function CalendarView({ query }: { query: URLSearchParams }) {
       </div>
 
       {/* mounted only while open, so the form starts fresh with the right day */}
-      {adding ? <NewEvent open day={query.get('dia') ?? selected} onClose={() => go(`/calendario?dia=${selected}`)} /> : null}
+      {adding ? <NewEvent open day={query.get('dia') ?? selected} clientId={query.get('cliente') ?? ''} title={query.get('titulo') ?? ''} onClose={() => go(`/calendario?dia=${selected}`)} /> : null}
     </>
   )
 }
 
-function NewEvent({ open, day, onClose }: { open: boolean; day: string; onClose: () => void }) {
+function NewEvent({ open, day, clientId, title: presetTitle, onClose }: { open: boolean; day: string; clientId: string; title: string; onClose: () => void }) {
   const { db, update, log, client } = useStore()
-  const [f, setF] = useState({ title: '', clientId: '', type: 'Mantenimiento' as EventType, date: day, time: '09:00', hours: 1, crew: 'Equipo 1' as Crew, repeat: '', amount: '', notes: '', notify: true })
+  const [f, setF] = useState({ title: presetTitle, clientId, type: (presetTitle ? 'Proyecto' : 'Mantenimiento') as EventType, date: day, time: '09:00', hours: 1, crew: 'Equipo 1' as Crew, repeat: '', amount: '', notes: '', notify: true })
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((x) => ({ ...x, [k]: v }))
 
   const submit = (e: FormEvent) => {

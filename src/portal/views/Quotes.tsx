@@ -1,8 +1,16 @@
 import { useState } from 'react'
-import { addDays, daysBetween, iso, lineTotal, quoteTotal, subtotal, today, uid, type Line, type Quote, type QuoteStatus, type Unit, nextNumber } from '../data'
+import { addDays, daysBetween, iso, lineFrom, lineTotal, margin, quoteTotal, subtotal, today, uid, type Line, type Package, type Quote, type QuoteStatus, type Unit, nextNumber } from '../data'
 import { go, useStore } from '../store'
 import { Avatar, Badge, Button, Card, Empty, Field, Header, Icon, Row, Segmented, Sheet, Stat, fmtDate, money, money0, rel } from '../ui'
 import { Doc, DocLines } from './Doc'
+import { AreaCalculator } from './Calculator'
+
+/** lines handed over by the area calculator page to a new quote */
+let pending: Line[] = []
+export const startQuoteWith = (lines: Line[]) => {
+  pending = lines
+  go('/cotizaciones/nueva')
+}
 
 type Filter = 'Todas' | 'Borrador' | 'Abiertas' | 'Aprobada' | 'Rechazada'
 const UNITS: Unit[] = ['visita', 'servicio', 'yd³', 'pie²', 'pie lin.', 'hora', 'c/u']
@@ -65,6 +73,16 @@ export function Quotes() {
   )
 }
 
+/** Area calculator as its own page: the result starts a new quote */
+export function CalculatorPage() {
+  return (
+    <>
+      <Header title="Calculadora por área" sub="Mida las áreas, elija materiales y obtenga un aproximado con su lista de precios." />
+      <AreaCalculator onAdd={startQuoteWith} addLabel="Crear cotización con esto" />
+    </>
+  )
+}
+
 const STEPS: { key: QuoteStatus; label: string }[] = [
   { key: 'Borrador', label: 'Creada' },
   { key: 'Enviada', label: 'Enviada' },
@@ -79,8 +97,9 @@ export function QuoteEditor({ id, query }: { id: string; query: URLSearchParams 
   const [q, setQ] = useState<Quote>(() =>
     existing
       ? structuredClone(existing)
-      : { id: uid('q'), number: nextNumber('Q', db.quotes), clientId: query.get('cliente') ?? '', title: '', status: 'Borrador', created: iso(today()), validDays: 30, lines: [], taxPct: 0, depositPct: 30, notes: '' },
+      : { id: uid('q'), number: nextNumber('Q', db.quotes), clientId: query.get('cliente') ?? '', title: '', status: 'Borrador', created: iso(today()), validDays: 30, lines: pending.splice(0), taxPct: 0, depositPct: 30, notes: '' },
   )
+  const [calc, setCalc] = useState(false)
   const [picker, setPicker] = useState(false)
   const [preview, setPreview] = useState(false)
   const [sending, setSending] = useState(false)
@@ -94,6 +113,33 @@ export function QuoteEditor({ id, query }: { id: string; query: URLSearchParams 
   const depositBilled = db.invoices.some((i) => i.lines.some((l) => l.desc.includes(q.number)))
 
   const set = <K extends keyof Quote>(k: K, v: Quote[K]) => setQ((x) => ({ ...x, [k]: v }))
+  const addLines = (lines: Line[]) => setQ((x) => ({ ...x, lines: [...x.lines, ...lines] }))
+  const addPackage = (p: Package) => {
+    const lines = p.items.flatMap(({ priceId, qty }) => {
+      const item = db.prices.find((x) => x.id === priceId)
+      return item ? [lineFrom(item, qty)] : []
+    })
+    setQ((x) => ({ ...x, title: x.title || p.name, lines: [...x.lines, ...lines] }))
+    toast(`Agregado: ${p.name}`)
+  }
+  const duplicate = () => {
+    const nid = uid('q')
+    const copy: Quote = { ...structuredClone(q), id: nid, number: nextNumber('Q', db.quotes), status: 'Borrador', created: iso(today()), sent: undefined, viewed: undefined, decided: undefined, followUp: undefined, lines: q.lines.map((l) => ({ ...l, id: uid('l') })) }
+    update((d) => { d.quotes.unshift(copy) })
+    toast(`Copia creada: ${copy.number}`)
+    go(`/cotizaciones/${nid}`)
+  }
+  const m = margin(q.lines)
+  const saveAsPackage = () => {
+    const items = q.lines.flatMap((l) => {
+      const p = db.prices.find((x) => x.name === l.desc)
+      return p ? [{ priceId: p.id, qty: l.qty }] : []
+    })
+    if (!items.length) return toast('Solo se guardan líneas de la lista de precios')
+    const name = q.title.trim() || `Paquete ${db.packages.length + 1}`
+    update((d) => { d.packages.push({ id: uid('k'), name, note: `Guardado desde ${q.number}`, items }) })
+    toast(`Paquete guardado: ${name}`)
+  }
   const setLine = (lid: string, patch: Partial<Line>) => setQ((x) => ({ ...x, lines: x.lines.map((l) => (l.id === lid ? { ...l, ...patch } : l)) }))
   const save = (next: Quote = q, msg = 'Cotización guardada') => {
     if (!next.clientId) return toast('Elija un cliente primero')
@@ -150,6 +196,7 @@ export function QuoteEditor({ id, query }: { id: string; query: URLSearchParams 
         sub={isNew ? 'Elija el cliente y agregue servicios de la lista de precios.' : <>{c?.name} · <Badge>{q.status}</Badge></>}
         actions={
           <>
+            {!isNew ? <Button kind="plain" icon="repeat" onClick={duplicate}>Duplicar</Button> : null}
             <Button icon="eye" onClick={() => setPreview(true)} disabled={!q.lines.length}>Vista del cliente</Button>
             {editable ? <Button kind="primary" icon="check" onClick={() => save()} disabled={!dirty}>Guardar</Button> : null}
           </>
@@ -173,7 +220,20 @@ export function QuoteEditor({ id, query }: { id: string; query: URLSearchParams 
             </div>
           </Card>
 
-          <Card title="Servicios y materiales" action={editable ? <div className="row-actions"><Button small icon="list" onClick={() => setPicker(true)}>De la lista de precios</Button><Button small kind="plain" icon="plus" onClick={() => set('lines', [...q.lines, { id: uid('l'), desc: '', qty: 1, unit: 'servicio', price: 0 }])}>Línea</Button></div> : null}>
+          {editable ? (
+            <Card title="Paquetes rápidos" action={<span className="muted small">Un toque y se agregan</span>}>
+              <div className="packs">
+                {db.packages.map((p) => (
+                  <button key={p.id} type="button" className="pack" onClick={() => addPackage(p)} title={p.note}>
+                    <Icon name={p.repeat ? 'repeat' : 'plus'} size={15} />
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            </Card>
+          ) : null}
+
+          <Card title="Servicios y materiales" action={editable ? <div className="row-actions"><Button small icon="ruler" onClick={() => setCalc(true)}>Calcular por área</Button><Button small icon="list" onClick={() => setPicker(true)}>De la lista de precios</Button><Button small kind="plain" icon="plus" onClick={() => set('lines', [...q.lines, { id: uid('l'), desc: '', qty: 1, unit: 'servicio', price: 0 }])}>Línea</Button>{q.lines.length ? <Button small kind="plain" icon="box" onClick={saveAsPackage}>Guardar como paquete</Button> : null}</div> : null}>
             {q.lines.length ? (
               <div className="lines">
                 <div className="lines__head" aria-hidden="true"><span>Descripción</span><span>Cant.</span><span>Unidad</span><span>Precio</span><span>Total</span><span /></div>
@@ -214,6 +274,13 @@ export function QuoteEditor({ id, query }: { id: string; query: URLSearchParams 
               <div className="is-total"><dt>Total</dt><dd>{money(total)}</dd></div>
               {q.depositPct ? <div><dt>Depósito ({q.depositPct} %)</dt><dd>{money(total * q.depositPct / 100)}</dd></div> : null}
             </dl>
+            {m ? (
+              <div className={`margin margin--${m.pct >= 40 ? 'good' : m.pct >= 25 ? 'ok' : 'low'}`}>
+                <span><Icon name="trend" size={16} /> Margen estimado</span>
+                <b>{m.pct} % · {money(m.profit)}</b>
+                <small>Solo lo ve usted{m.partial ? ' · hay líneas sin costo conocido' : ''}. {m.pct < 25 ? 'Revise el precio: el margen es bajo.' : ''}</small>
+              </div>
+            ) : null}
           </Card>
 
           {!isNew ? (
@@ -249,7 +316,7 @@ export function QuoteEditor({ id, query }: { id: string; query: URLSearchParams 
                   <>
                     {contract ? <a className="btn btn--primary btn--block" href={`#/contratos/${contract.id}`}><Icon name="sign" size={18} /> Ver contrato {contract.number}</a> : <Button kind="primary" icon="sign" className="btn--block" onClick={createContract}>Crear contrato</Button>}
                     {q.depositPct && !depositBilled ? <Button icon="card" className="btn--block" onClick={depositInvoice}>Cobrar depósito ({money0(total * q.depositPct / 100)})</Button> : null}
-                    <a className="btn btn--secondary btn--block" href="#/calendario?nuevo=1"><Icon name="calendar" size={18} /> Programar trabajo</a>
+                    <a className="btn btn--secondary btn--block" href={`#/calendario?nuevo=1&cliente=${q.clientId}&titulo=${encodeURIComponent(q.title)}`}><Icon name="calendar" size={18} /> Programar trabajo</a>
                   </>
                 ) : null}
                 {/* once a contract exists the quote is locked: the contract shows these lines and prices */}
@@ -260,6 +327,11 @@ export function QuoteEditor({ id, query }: { id: string; query: URLSearchParams 
         </div>
       </div>
 
+      {calc ? (
+        <Sheet open onClose={() => setCalc(false)} title="Calculadora por área" wide>
+          <AreaCalculator onAdd={(lines) => { addLines(lines); setCalc(false); toast(`${lines.length} líneas agregadas desde la calculadora`) }} />
+        </Sheet>
+      ) : null}
       {picker ? <PricePicker onClose={() => setPicker(false)} onPick={(l) => setQ((x) => ({ ...x, lines: [...x.lines, l] }))} /> : null}
 
       <Sheet open={preview} onClose={() => setPreview(false)} title="Vista del cliente" wide>
@@ -312,7 +384,7 @@ function PricePicker({ onClose, onPick }: { onClose: () => void; onPick: (l: Lin
           <p className="group__label">{g}</p>
           <div className="group">
             {items.filter((p) => p.group === g).map((p) => (
-              <Row key={p.id} onClick={() => { onPick({ id: uid('l'), desc: p.name, qty: 1, unit: p.unit, price: p.price }); toast(`Agregado: ${p.name}`) }} title={p.name} trail={<span className="muted">{money(p.price)} / {p.unit}</span>} chevron={false} lead={<span className="tile-icon tile-icon--sm"><Icon name="plus" size={14} /></span>} />
+              <Row key={p.id} onClick={() => { onPick(lineFrom(p)); toast(`Agregado: ${p.name}`) }} title={p.name} trail={<span className="muted">{money(p.price)} / {p.unit}</span>} chevron={false} lead={<span className="tile-icon tile-icon--sm"><Icon name="plus" size={14} /></span>} />
             ))}
           </div>
         </div>
