@@ -13,6 +13,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import * as esbuild from 'esbuild'
 
 import { Document, assets } from '../src/components/Document'
+import { PortalDocument } from '../src/portal/PortalDocument'
 import { buildRoutes } from '../src/routes'
 import { BASE_PATH, IS_PREVIEW, RELATIVE_LINKS, SITE_URL } from '../src/lib/env'
 import { absolute, photoManifest, setCurrentPage } from '../src/lib/url'
@@ -132,6 +133,27 @@ const jsName = `assets/site.${hash(jsCode)}.js`
 write(jsName, jsCode)
 assets.js = '/' + jsName
 
+// 4b. Staff portal (/portal/): a React app, bundled separately so public pages stay JS-light
+const portal = await esbuild.build({
+  entryPoints: [join(root, 'src/portal/main.tsx')],
+  bundle: true,
+  minify: true,
+  format: 'iife',
+  jsx: 'automatic',
+  target: ['chrome111', 'safari16.4', 'firefox115'],
+  define: { 'process.env.NODE_ENV': '"production"', 'process.env.WEB3FORMS_KEY': '""' },
+  write: false,
+  legalComments: 'none',
+})
+const portalJs = portal.outputFiles[0].text
+const portalJsName = `assets/portal.${hash(portalJs)}.js`
+write(portalJsName, portalJs)
+assets.portalJs = '/' + portalJsName
+const portalCss = (await esbuild.transform(fontCss + readFileSync(join(root, 'src/portal/portal.css'), 'utf8'), { loader: 'css', minify: true, target: ['chrome111', 'safari16.4', 'firefox115'] })).code
+const portalCssName = `assets/portal.${hash(portalCss)}.css`
+write(portalCssName, portalCss)
+assets.portalCss = '/' + portalCssName
+
 // 5. Pages (each one rendered in its own language)
 const routes = buildRoutes()
 for (const r of routes) {
@@ -145,6 +167,13 @@ for (const r of routes) {
   html = html.replace(cspTag, '').replace('<meta charSet="utf-8"/>', '<meta charSet="utf-8"/>' + cspTag)
   const file = r.file ?? join(r.path.replace(/^\//, ''), 'index.html')
   write(file, html)
+}
+{
+  setCurrentPage('/portal/')
+  let html = '<!doctype html>' + renderToStaticMarkup(<PortalDocument />)
+  const cspTag = html.match(/<meta http-equiv="Content-Security-Policy"[^>]*\/>/)![0]
+  html = html.replace(cspTag, '').replace('<meta charSet="utf-8"/>', '<meta charSet="utf-8"/>' + cspTag)
+  write('portal/index.html', html)
 }
 
 // 6. sitemap.xml, robots.txt, manifest
@@ -169,7 +198,7 @@ write(
   'robots.txt',
   IS_PREVIEW
     ? `# Preview build: keep out of search engines until the real domain is live\nUser-agent: *\nDisallow: /\n`
-    : `User-agent: *\nAllow: /\n\nSitemap: ${absolute('/sitemap.xml')}\n`,
+    : `User-agent: *\nAllow: /\nDisallow: ${BASE_PATH}portal/\n\nSitemap: ${absolute('/sitemap.xml')}\n`,
 )
 write(
   'manifest.webmanifest',

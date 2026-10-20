@@ -235,6 +235,8 @@ export function Footer() {
         <p>© {year} {business.name}. {t.rights}</p>
         <p>
           <a href={href(pagePath('privacy'))}>{t.privacy}</a>
+          {' · '}
+          <a href={href('/portal/')} rel="nofollow">{t.staff}</a>
         </p>
       </div>
     </footer>

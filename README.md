@@ -146,7 +146,19 @@ ninos-web/
 
 Los componentes son React normales (`.tsx`), pero en lugar de enviar React al navegador, se convierten a HTML al compilar. Resultado: el sitio carga casi instantáneo, Google ve todo el contenido y hay muy pocas dependencias que mantener. Si más adelante se quiere Astro, los mismos componentes se pueden usar dentro de Astro casi sin cambios.
 
-## 7. Siguientes fases
+## 7. Portal del equipo (demostración)
+
+En `/portal/` hay una app interna de prueba para ver cómo funcionaría la gestión del negocio: agenda del día, calendario, clientes, cotizaciones, contratos, facturas y pagos, mensajes y lista de precios.
+
+- **Entrar:** usuario `admin`, contraseña `12345`. El enlace está en el pie de página ("Acceso del personal").
+- **Es solo una demo:**
+  - El login se revisa en el navegador y cualquiera puede leer la contraseña en el código.
+  - Los clientes y montos son inventados y se borran al recargar la página.
+  - Los envíos (texto, WhatsApp, email), las firmas y los pagos son simulados.
+- **No guardar datos reales de clientes aquí.** Para usarlo de verdad necesita un servidor con login real y base de datos (por ejemplo Supabase con RLS), mensajería (Twilio, WhatsApp Business), pagos (Stripe) y firma electrónica.
+- **Código:** `src/portal/`. React se carga solo en `/portal/`, el sitio público no lo descarga. Google no la indexa (`noindex` y `robots.txt`).
+
+## 8. Siguientes fases
 
 2. Intranet con Supabase (subdominio `portal.`)
 3. Pagos en línea con Stripe Checkout: ver [SECURITY.md](SECURITY.md#pagos-en-línea-fase-futura-cómo-hacerlo-seguro)

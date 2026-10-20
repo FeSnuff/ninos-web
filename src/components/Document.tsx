@@ -7,7 +7,7 @@ import { lang, s, type Lang } from '../i18n'
 import { Footer, Header, QuickContact } from './Chrome'
 
 /** Filled by the build with hashed file names. */
-export const assets = { css: '', js: '', fontNormal: '' as string | null }
+export const assets = { css: '', js: '', fontNormal: '' as string | null, portalCss: '', portalJs: '' }
 
 export type PageMeta = {
   /** route path, always with trailing slash, e.g. '/services/irrigation/' */
