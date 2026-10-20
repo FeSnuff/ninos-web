@@ -25,7 +25,7 @@ export function More({ onOut }: { onOut: () => void }) {
       <div className="group">
         <Row lead={<span className="avatar avatar--sm avatar--0">N</span>} title="Nino" sub={`Administrador · ${business.name}`} />
         <Row href={SITE_HOME} lead={<span className="tile-icon tone-gray"><Icon name="globe" size={17} /></span>} title="Ver sitio web" />
-        <Row onClick={() => { reset(); toast('Datos de prueba restablecidos') }} lead={<span className="tile-icon tone-gray"><Icon name="repeat" size={17} /></span>} title="Restablecer datos de prueba" chevron={false} />
+        <Row onClick={() => window.confirm('¿Restablecer todos los datos de prueba? Se pierden los cambios de esta sesión.') && (reset(), toast('Datos de prueba restablecidos'))} lead={<span className="tile-icon tone-gray"><Icon name="repeat" size={17} /></span>} title="Restablecer datos de prueba" chevron={false} />
         <Row onClick={onOut} lead={<span className="tile-icon tone-red"><Icon name="logout" size={17} /></span>} title={<span className="txt-red">Cerrar sesión</span>} chevron={false} />
       </div>
     </>
@@ -45,6 +45,10 @@ export function Messages() {
   const [tag, setTag] = useState<'Todos' | ClientTag>('Riego')
   const to = db.clients.filter((c) => tag === 'Todos' || c.tags.includes(tag))
   const chosen = db.templates.find((t) => t.id === tpl)
+  // {numero}, {monto}, {link} belong to one quote or invoice: those templates are sent from that record
+  const perRecord = chosen ? /{(numero|monto|link)}/.test(chosen.text) : false
+  const sample = (text: string) =>
+    text.replace('{cliente}', to[0]?.name.split(' ')[0] ?? 'cliente').replace('{fecha}', 'el jueves 23 de octubre').replace('{hora}', '9:00 am')
 
   return (
     <>
@@ -85,7 +89,7 @@ export function Messages() {
         </Card>
       </div>
 
-      <Sheet open={bulk} onClose={() => setBulk(false)} title="Aviso a varios clientes" footer={<><Button kind="plain" onClick={() => setBulk(false)}>Cancelar</Button><Button kind="primary" icon="send" disabled={!to.length || !chosen} onClick={() => { log(`Aviso "${chosen?.name}" enviado a ${to.length} clientes (${tag.toLowerCase()})`, `Aviso enviado a ${to.length} clientes (simulado)`); setBulk(false) }}>Enviar a {to.length}</Button></>}>
+      <Sheet open={bulk} onClose={() => setBulk(false)} title="Aviso a varios clientes" footer={<><Button kind="plain" onClick={() => setBulk(false)}>Cancelar</Button><Button kind="primary" icon="send" disabled={!to.length || !chosen || perRecord} onClick={() => { log(`Aviso "${chosen?.name}" enviado a ${to.length} clientes (${tag.toLowerCase()})`, `Aviso enviado a ${to.length} clientes (simulado)`); setBulk(false) }}>Enviar a {to.length}</Button></>}>
         <div className="form">
           <Field label="Para">
             <select value={tag} onChange={(e) => setTag(e.target.value as typeof tag)}>
@@ -97,7 +101,8 @@ export function Messages() {
               {db.templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </Field>
-          {chosen ? <div className="msg-preview"><small>Vista previa</small>{chosen.text.replace('{cliente}', to[0]?.name.split(' ')[0] ?? 'cliente')}</div> : null}
+          {chosen ? <div className="msg-preview"><small>Vista previa</small>{sample(chosen.text)}</div> : null}
+          {perRecord ? <p className="notice-soft"><Icon name="alert" size={16} /> Esta plantilla usa datos de una factura o cotización. Envíela desde ese documento.</p> : null}
           <p className="muted small">{to.map((c) => c.name).join(', ') || 'Ningún cliente con esa etiqueta.'}</p>
           <p className="muted small">Cada cliente lo recibe por su medio preferido (texto, WhatsApp o email). Simulado.</p>
         </div>
@@ -130,7 +135,7 @@ export function PriceBook() {
                 lead={<span className="tile-icon tone-green"><Icon name="box" size={16} /></span>}
                 title={<>{k.name} {k.repeat ? <Badge tone="green">{k.repeat}</Badge> : null}</>}
                 sub={k.items.map((it) => `${it.qty} × ${db.prices.find((p) => p.id === it.priceId)?.name ?? '?'}`).join(' · ')}
-                trail={<span className="row-actions"><b>{money(total)}</b><button type="button" className="icon-btn" aria-label={`Quitar paquete ${k.name}`} onClick={() => { update((d) => { d.packages = d.packages.filter((x) => x.id !== k.id) }); toast('Paquete quitado') }}><Icon name="trash" size={15} /></button></span>}
+                trail={<span className="row-actions"><b>{money(total)}</b><button type="button" className="icon-btn" aria-label={`Quitar paquete ${k.name}`} onClick={() => { if (!window.confirm(`¿Quitar el paquete "${k.name}"?`)) return; update((d) => { d.packages = d.packages.filter((x) => x.id !== k.id) }); toast('Paquete quitado') }}><Icon name="trash" size={15} /></button></span>}
               />
             )
           })}
@@ -145,8 +150,12 @@ export function PriceBook() {
                 <div key={p.id} className="row">
                   <span className="row__main">
                     <span className="row__title">{p.name}</span>
-                    <span className="row__sub">por {p.unit} · costo {money(p.cost)} · margen {p.price ? Math.round(((p.price - p.cost) / p.price) * 100) : 0} %</span>
+                    <span className="row__sub">por {p.unit}{p.cost !== undefined && p.price ? ` · margen ${Math.round(((p.price - p.cost) / p.price) * 100)} %` : ' · sin costo registrado'}</span>
                   </span>
+                  <label className="price-input price-input--cost" title="Su costo (interno)">
+                    <span>costo $</span>
+                    <input type="number" min={0} step="0.01" defaultValue={p.cost ?? ''} aria-label={`Costo de ${p.name}`} onBlur={(e) => { const v = e.target.value === '' ? undefined : Number(e.target.value); if (v !== p.cost) { update((d) => { d.prices.find((x) => x.id === p.id)!.cost = v }); toast('Costo actualizado') } }} />
+                  </label>
                   <label className="price-input">
                     <span aria-hidden="true">$</span>
                     <input type="number" min={0} step="0.01" defaultValue={p.price} aria-label={`Precio de ${p.name}`} onBlur={(e) => { if (e.target.value === '') { e.target.value = String(p.price); return } const v = Number(e.target.value); if (v !== p.price) { setPrice(p.id, v); toast(`Precio actualizado: ${money(v)}`) } }} />
@@ -158,7 +167,7 @@ export function PriceBook() {
         ))}
       </div>
       <Sheet open={adding} onClose={() => setAdding(false)} title="Nuevo servicio o material" footer={<><Button kind="plain" onClick={() => setAdding(false)}>Cancelar</Button><Button kind="primary" type="submit" form="new-price">Agregar</Button></>}>
-        <form id="new-price" className="form" onSubmit={(e) => { e.preventDefault(); const id = uid('p'); update((d) => { d.prices.push({ id, name: f.name, group: f.group, unit: f.unit, price: Number(f.price), cost: Number(f.cost) || 0 }) }); toast('Agregado a la lista'); setAdding(false); setF({ ...f, name: '', price: '' }) }}>
+        <form id="new-price" className="form" onSubmit={(e) => { e.preventDefault(); const id = uid('p'); update((d) => { d.prices.push({ id, name: f.name, group: f.group, unit: f.unit, price: Number(f.price), cost: f.cost === '' ? undefined : Number(f.cost) }) }); toast('Agregado a la lista'); setAdding(false); setF({ ...f, name: '', price: '' }) }}>
           <Field label="Nombre"><input required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
           <div className="form__row">
             <Field label="Grupo">

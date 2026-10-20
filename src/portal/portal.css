@@ -2832,3 +2832,50 @@ button.row:hover {
     padding: 0;
   }
 }
+
+/* ---------- Audit additions ---------- */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.price-input--cost {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--sep);
+  font-size: 12px;
+}
+
+.price-input--cost input {
+  width: 60px;
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.row .price-input + .price-input {
+  margin-left: -4px;
+}
+
+.doc__cta p {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+/* price book rows: full names, inputs wrap below on phones */
+.price-groups .row__title,
+.price-groups .row__sub {
+  white-space: normal;
+}
+
+@media (max-width: 640px) {
+  .price-groups .row {
+    flex-wrap: wrap;
+  }
+  .price-groups .row__main {
+    flex-basis: 100%;
+  }
+}

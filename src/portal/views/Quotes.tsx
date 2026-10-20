@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { addDays, daysBetween, iso, lineFrom, lineTotal, margin, quoteTotal, subtotal, today, uid, type Line, type Package, type Quote, type QuoteStatus, type Unit, nextNumber } from '../data'
 import { go, useStore } from '../store'
 import { Avatar, Badge, Button, Card, Empty, Field, Header, Icon, Row, Segmented, Sheet, Stat, fmtDate, money, money0, rel } from '../ui'
@@ -97,8 +97,11 @@ export function QuoteEditor({ id, query }: { id: string; query: URLSearchParams 
   const [q, setQ] = useState<Quote>(() =>
     existing
       ? structuredClone(existing)
-      : { id: uid('q'), number: nextNumber('Q', db.quotes), clientId: query.get('cliente') ?? '', title: '', status: 'Borrador', created: iso(today()), validDays: 30, lines: pending.splice(0), taxPct: 0, depositPct: 30, notes: '' },
+      : { id: uid('q'), number: nextNumber('Q', db.quotes), clientId: query.get('cliente') ?? '', title: '', status: 'Borrador', created: iso(today()), validDays: 30, lines: [...pending], taxPct: 0, depositPct: 30, notes: '' },
   )
+  useEffect(() => {
+    pending = []
+  }, [])
   const [calc, setCalc] = useState(false)
   const [picker, setPicker] = useState(false)
   const [preview, setPreview] = useState(false)
@@ -111,34 +114,37 @@ export function QuoteEditor({ id, query }: { id: string; query: URLSearchParams 
   const total = quoteTotal(q)
   const contract = db.contracts.find((k) => k.quoteId === q.id)
   const depositBilled = db.invoices.some((i) => i.lines.some((l) => l.desc.includes(q.number)))
+  const signed = contract?.status === 'Firmado'
 
   const set = <K extends keyof Quote>(k: K, v: Quote[K]) => setQ((x) => ({ ...x, [k]: v }))
   const addLines = (lines: Line[]) => setQ((x) => ({ ...x, lines: [...x.lines, ...lines] }))
   const addPackage = (p: Package) => {
     const lines = p.items.flatMap(({ priceId, qty }) => {
       const item = db.prices.find((x) => x.id === priceId)
-      return item ? [lineFrom(item, qty)] : []
+      if (!item) return []
+      const l = lineFrom(item, qty)
+      return [p.repeat ? { ...l, desc: `${l.desc} (por visita, ${p.repeat.toLowerCase()})` } : l]
     })
-    setQ((x) => ({ ...x, title: x.title || p.name, lines: [...x.lines, ...lines] }))
-    toast(`Agregado: ${p.name}`)
+    if (!lines.length) return toast('Ese paquete ya no tiene servicios en la lista de precios')
+    setQ((x) => ({ ...x, title: x.title || p.name, depositPct: p.repeat && !x.lines.length ? 0 : x.depositPct, lines: [...x.lines, ...lines] }))
+    toast(`Agregado: ${p.name}${lines.length < p.items.length ? ' (faltan servicios borrados de la lista)' : ''}`)
   }
   const duplicate = () => {
+    if (dirty && existing && !window.confirm('Hay cambios sin guardar. La copia se hará de la versión guardada. ¿Continuar?')) return
     const nid = uid('q')
-    const copy: Quote = { ...structuredClone(q), id: nid, number: nextNumber('Q', db.quotes), status: 'Borrador', created: iso(today()), sent: undefined, viewed: undefined, decided: undefined, followUp: undefined, lines: q.lines.map((l) => ({ ...l, id: uid('l') })) }
+    const copy: Quote = { ...structuredClone(existing ?? q), id: nid, number: nextNumber('Q', db.quotes), status: 'Borrador', created: iso(today()), sent: undefined, viewed: undefined, decided: undefined, followUp: undefined, lines: (existing ?? q).lines.map((l) => ({ ...l, id: uid('l') })) }
     update((d) => { d.quotes.unshift(copy) })
     toast(`Copia creada: ${copy.number}`)
     go(`/cotizaciones/${nid}`)
   }
   const m = margin(q.lines)
   const saveAsPackage = () => {
-    const items = q.lines.flatMap((l) => {
-      const p = db.prices.find((x) => x.name === l.desc)
-      return p ? [{ priceId: p.id, qty: l.qty }] : []
-    })
-    if (!items.length) return toast('Solo se guardan líneas de la lista de precios')
+    const items = q.lines.flatMap((l) => (l.priceId && db.prices.some((p) => p.id === l.priceId) ? [{ priceId: l.priceId, qty: l.qty }] : []))
+    if (!items.length) return toast('Solo se guardan líneas que vienen de la lista de precios')
     const name = q.title.trim() || `Paquete ${db.packages.length + 1}`
     update((d) => { d.packages.push({ id: uid('k'), name, note: `Guardado desde ${q.number}`, items }) })
-    toast(`Paquete guardado: ${name}`)
+    const skipped = q.lines.length - items.length
+    toast(`Paquete guardado: ${name}${skipped ? ` (${skipped} línea${skipped > 1 ? 's' : ''} personalizada${skipped > 1 ? 's' : ''} no incluida${skipped > 1 ? 's' : ''})` : ''}. Usa los precios de la lista.`)
   }
   const setLine = (lid: string, patch: Partial<Line>) => setQ((x) => ({ ...x, lines: x.lines.map((l) => (l.id === lid ? { ...l, ...patch } : l)) }))
   const save = (next: Quote = q, msg = 'Cotización guardada') => {
@@ -227,6 +233,7 @@ export function QuoteEditor({ id, query }: { id: string; query: URLSearchParams 
                   <button key={p.id} type="button" className="pack" onClick={() => addPackage(p)} title={p.note}>
                     <Icon name={p.repeat ? 'repeat' : 'plus'} size={15} />
                     {p.name}
+                    <span className="visually-hidden">: {p.note}</span>
                   </button>
                 ))}
               </div>
@@ -237,14 +244,14 @@ export function QuoteEditor({ id, query }: { id: string; query: URLSearchParams 
             {q.lines.length ? (
               <div className="lines">
                 <div className="lines__head" aria-hidden="true"><span>Descripción</span><span>Cant.</span><span>Unidad</span><span>Precio</span><span>Total</span><span /></div>
-                {q.lines.map((l) => (
+                {q.lines.map((l, n) => (
                   <div key={l.id} className="lines__row">
-                    <input aria-label="Descripción" value={l.desc} onChange={(e) => setLine(l.id, { desc: e.target.value })} disabled={!editable} />
-                    <input aria-label="Cantidad" type="number" min={0} step="any" value={l.qty} onChange={(e) => setLine(l.id, { qty: Number(e.target.value) })} disabled={!editable} />
-                    <select aria-label="Unidad" value={l.unit} onChange={(e) => setLine(l.id, { unit: e.target.value as Unit })} disabled={!editable}>
+                    <input aria-label={`Descripción, línea ${n + 1}`} value={l.desc} onChange={(e) => setLine(l.id, { desc: e.target.value })} disabled={!editable} />
+                    <input aria-label={`Cantidad, línea ${n + 1}`} type="number" min={0} step="any" value={l.qty} onChange={(e) => setLine(l.id, { qty: Number(e.target.value) })} disabled={!editable} />
+                    <select aria-label={`Unidad, línea ${n + 1}`} value={l.unit} onChange={(e) => setLine(l.id, { unit: e.target.value as Unit })} disabled={!editable}>
                       {UNITS.map((u) => <option key={u}>{u}</option>)}
                     </select>
-                    <input aria-label="Precio" type="number" min={0} step="any" value={l.price} onChange={(e) => setLine(l.id, { price: Number(e.target.value) })} disabled={!editable} />
+                    <input aria-label={`Precio, línea ${n + 1}`} type="number" min={0} step="any" value={l.price} onChange={(e) => setLine(l.id, { price: Number(e.target.value) })} disabled={!editable} />
                     <span className="lines__total">{money(lineTotal(l))}</span>
                     {editable ? <button type="button" className="icon-btn" aria-label="Quitar línea" onClick={() => set('lines', q.lines.filter((x) => x.id !== l.id))}><Icon name="trash" size={16} /></button> : <span />}
                   </div>
@@ -315,12 +322,15 @@ export function QuoteEditor({ id, query }: { id: string; query: URLSearchParams 
                 {q.status === 'Aprobada' ? (
                   <>
                     {contract ? <a className="btn btn--primary btn--block" href={`#/contratos/${contract.id}`}><Icon name="sign" size={18} /> Ver contrato {contract.number}</a> : <Button kind="primary" icon="sign" className="btn--block" onClick={createContract}>Crear contrato</Button>}
-                    {q.depositPct && !depositBilled ? <Button icon="card" className="btn--block" onClick={depositInvoice}>Cobrar depósito ({money0(total * q.depositPct / 100)})</Button> : null}
+                    {q.depositPct && !depositBilled ? (
+                      signed ? <Button icon="card" className="btn--block" onClick={depositInvoice}>Cobrar depósito ({money(total * q.depositPct / 100)})</Button>
+                        : <p className="muted small">El depósito se cobra después de que el cliente firme el contrato.</p>
+                    ) : null}
                     <a className="btn btn--secondary btn--block" href={`#/calendario?nuevo=1&cliente=${q.clientId}&titulo=${encodeURIComponent(q.title)}`}><Icon name="calendar" size={18} /> Programar trabajo</a>
                   </>
                 ) : null}
                 {/* once a contract exists the quote is locked: the contract shows these lines and prices */}
-                {q.status !== 'Borrador' && !contract ? <Button kind="plain" icon="edit" className="btn--block" onClick={() => setStatus('Borrador')}>Volver a borrador para editar</Button> : null}
+                {q.status !== 'Borrador' && !contract && !depositBilled ? <Button kind="plain" icon="edit" className="btn--block" onClick={() => setStatus('Borrador')}>Volver a borrador para editar</Button> : null}
               </div>
             </Card>
           ) : null}
@@ -341,6 +351,7 @@ export function QuoteEditor({ id, query }: { id: string; query: URLSearchParams 
           {q.notes ? <p className="doc__notes">{q.notes}</p> : null}
           <p className="doc__small">Cotización válida por {q.validDays} días. Precios en dólares (USD).</p>
           <div className="doc__cta">
+            <p className="doc__small">Vista previa: así verá el cliente los botones en su celular.</p>
             <span className="btn btn--primary">Aprobar cotización</span>
             <span className="btn btn--secondary">Tengo una pregunta</span>
           </div>

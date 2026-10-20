@@ -15,7 +15,7 @@ const SHAPES: { value: Shape; label: string }[] = [
   { value: 'rect', label: 'Rectángulo' },
   { value: 'circle', label: 'Círculo' },
   { value: 'tri', label: 'Triángulo' },
-  { value: 'sqft', label: 'Pies²' },
+  { value: 'sqft', label: 'pie²' },
 ]
 
 function measure({ shape, a, b }: Area) {
@@ -41,11 +41,29 @@ const MATERIALS: Material[] = [
   { key: 'edge', label: 'Borde de adoquín', priceId: 'p7', param: { label: 'Del perímetro', unit: '%', def: 100, min: 10, max: 100 }, qty: (_a, e, pct) => Math.ceil((e * pct) / 100), hint: 'Use menos de 100 % si un lado toca la casa o la acera.' },
 ]
 
+/** Optional: per-visit services priced by property size (factor over the price-book price) */
+type Size = 'none' | 'S' | 'M' | 'L'
+const SIZES: Record<Exclude<Size, 'none'>, { label: string; lot: string; factor: number }> = {
+  S: { label: 'Pequeña', lot: 'hasta 5,000 pie² de jardín (townhouse o lote chico)', factor: 0.8 },
+  M: { label: 'Mediana', lot: '5,000 a 10,000 pie² (casa típica de vecindario)', factor: 1 },
+  L: { label: 'Grande', lot: '10,000 a 20,000 pie² (lote amplio o esquina)', factor: 1.5 },
+}
+/** price-book items that scale with property size */
+const SIZE_SERVICES = ['p1', 'p10', 'p11', 'p2']
+
 export function AreaCalculator({ onAdd, addLabel = 'Agregar a la cotización' }: { onAdd: (lines: Line[]) => void; addLabel?: string }) {
   const { db } = useStore()
   const [areas, setAreas] = useState<Area[]>([{ id: uid('a'), label: 'Jardinera del frente', shape: 'rect', a: 30, b: 4 }])
   const [on, setOn] = useState<Record<string, boolean>>({ mulch: true })
-  const [params, setParams] = useState<Record<string, number>>(Object.fromEntries(MATERIALS.map((m) => [m.key, m.param?.def ?? 0])))
+  const [raw, setRaw] = useState<Record<string, string>>(Object.fromEntries(MATERIALS.map((m) => [m.key, String(m.param?.def ?? 0)])))
+  const params = Object.fromEntries(
+    MATERIALS.map((m) => {
+      const v = Number(raw[m.key])
+      return [m.key, m.param ? (raw[m.key] === '' || Number.isNaN(v) ? m.param.def : Math.min(m.param.max, Math.max(m.param.min, v))) : 0]
+    }),
+  )
+  const [size, setSize] = useState<Size>('none')
+  const [sizeOn, setSizeOn] = useState<Record<string, boolean>>({ p1: true })
 
   const setArea = (id: string, patch: Partial<Area>) => setAreas((xs) => xs.map((x) => (x.id === id ? { ...x, ...patch } : x)))
   const totals = areas.reduce((t, ar) => { const m = measure(ar); return { area: t.area + m.area, edge: t.edge + m.edge } }, { area: 0, edge: 0 })
@@ -53,8 +71,17 @@ export function AreaCalculator({ onAdd, addLabel = 'Agregar a la cotización' }:
   const lines: Line[] = MATERIALS.filter((m) => on[m.key]).flatMap((m) => {
     const item = db.prices.find((p) => p.id === m.priceId)
     const qty = m.qty(totals.area, totals.edge, params[m.key])
-    return item && qty > 0 ? [{ ...lineFrom(item, qty), desc: `${item.name} · ${Math.round(totals.area)} pie²${m.param && m.key !== 'edge' ? ` · ${params[m.key]} ${m.param.unit}` : ''}` }] : []
+    return item && qty > 0 ? [{ ...lineFrom(item, qty), id: `calc-${m.key}`, desc: `${item.name} · ${Math.round(totals.area)} pie²${m.param && m.key !== 'edge' ? ` · ${params[m.key]} ${m.param.unit}` : ''}` }] : []
   })
+  if (size !== 'none') {
+    const { label, factor } = SIZES[size]
+    for (const id of SIZE_SERVICES) {
+      const item = db.prices.find((p) => p.id === id)
+      if (!item || !sizeOn[id]) continue
+      const round = (n: number) => Math.round(n * factor * 100) / 100
+      lines.push({ ...lineFrom(item, 1), id: `calc-size-${id}`, desc: `${item.name} · propiedad ${label.toLowerCase()}`, price: Math.round(item.price * factor), cost: item.cost === undefined ? undefined : round(item.cost) })
+    }
+  }
   const total = subtotal(lines)
   const mg = margin(lines)
 
@@ -90,7 +117,33 @@ export function AreaCalculator({ onAdd, addLabel = 'Agregar a la cotización' }:
           <p className="calc__sum"><b>Total: {Math.round(totals.area).toLocaleString('en-US')} pie²</b> · perímetro ~{Math.round(totals.edge)} pies lineales</p>
         </Card>
 
-        <Card title="2. Materiales y servicio">
+        <Card title="2. Tamaño de la propiedad (opcional)">
+          <p className="muted small">Agrega servicios por visita con precio según el tamaño del jardín.</p>
+          <div className="mt">
+            <Segmented label="Tamaño de la propiedad" value={size} onChange={setSize} options={[{ value: 'none', label: 'No agregar' }, { value: 'S', label: 'Pequeña' }, { value: 'M', label: 'Mediana' }, { value: 'L', label: 'Grande' }]} />
+          </div>
+          {size !== 'none' ? (
+            <>
+              <p className="area__res mt">{SIZES[size].lot} · precio {SIZES[size].factor === 1 ? 'base' : `× ${SIZES[size].factor}`}</p>
+              <div className="mats mt">
+                {SIZE_SERVICES.map((id) => {
+                  const item = db.prices.find((p) => p.id === id)
+                  if (!item) return null
+                  return (
+                    <div key={id} className={sizeOn[id] ? 'mat is-on' : 'mat'}>
+                      <label className="check">
+                        <input type="checkbox" checked={!!sizeOn[id]} onChange={(e) => setSizeOn({ ...sizeOn, [id]: e.target.checked })} />
+                        <span><b>{item.name}</b><small> · {money(Math.round(item.price * SIZES[size].factor))} / {item.unit}</small></span>
+                      </label>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          ) : null}
+        </Card>
+
+        <Card title="3. Materiales (para el total de las áreas)">
           <div className="mats">
             {MATERIALS.map((m) => {
               const item = db.prices.find((p) => p.id === m.priceId)
@@ -104,7 +157,7 @@ export function AreaCalculator({ onAdd, addLabel = 'Agregar a la cotización' }:
                     <div className="mat__param">
                       <label>
                         {m.param.label}
-                        <input type="number" min={m.param.min} max={m.param.max} value={params[m.key]} onChange={(e) => setParams({ ...params, [m.key]: Math.min(m.param!.max, Math.max(m.param!.min, Number(e.target.value))) })} />
+                        <input type="number" min={m.param.min} max={m.param.max} value={raw[m.key]} onChange={(e) => setRaw({ ...raw, [m.key]: e.target.value })} onBlur={() => setRaw({ ...raw, [m.key]: String(params[m.key]) })} />
                         {m.param.unit}
                       </label>
                       <small>{m.hint}</small>
@@ -117,13 +170,13 @@ export function AreaCalculator({ onAdd, addLabel = 'Agregar a la cotización' }:
         </Card>
       </div>
 
-      <Card title="3. Aproximado" className="calc__result">
+      <Card title="4. Aproximado" className="calc__result">
         {lines.length ? (
           <>
             <ul className="calc__lines">
               {lines.map((l) => (
                 <li key={l.id}>
-                  <span>{l.desc.split(' · ')[0]}<small>{l.qty} {l.unit} × {money(l.price)}</small></span>
+                  <span>{l.desc}<small>{l.qty} {l.unit} × {money(l.price)}</small></span>
                   <b>{money(l.qty * l.price)}</b>
                 </li>
               ))}
@@ -138,7 +191,7 @@ export function AreaCalculator({ onAdd, addLabel = 'Agregar a la cotización' }:
             <p className="muted small">Cálculo aproximado con precios de la lista. Confirme medidas y acceso en la visita.</p>
           </>
         ) : (
-          <p className="muted">Elija al menos un material.</p>
+          <p className="muted">Elija al menos un material o un tamaño de propiedad.</p>
         )}
       </Card>
     </div>

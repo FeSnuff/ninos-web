@@ -1,8 +1,8 @@
 import { useRef, useState, type PointerEvent } from 'react'
 import { business } from '../../site.config'
-import { iso, quoteTotal, today, type Contract, type ContractStatus } from '../data'
+import { addBusinessDays, addDays, invoiceTotal, iso, nextNumber, quoteTotal, today, uid, type Contract, type ContractStatus } from '../data'
 import { TERMS } from '../terms'
-import { useStore } from '../store'
+import { go, useStore } from '../store'
 import { Avatar, Badge, Button, Card, Empty, Field, Header, Icon, Row, Segmented, Sheet, fmtDate, fmtFull, money, rel } from '../ui'
 import { Doc, DocLines } from './Doc'
 
@@ -38,10 +38,11 @@ export function Contracts() {
 const Todo = ({ children }: { children: string }) => <span className="doc__todo">[PENDIENTE: {children}]</span>
 
 /** Signature pad: strokes are kept as SVG path data (the page's security policy blocks data: images). */
-function SignaturePad({ onDone, onCancel }: { onDone: (sig: { path?: string; name?: string }) => void; onCancel: () => void }) {
+function SignaturePad({ onDone, onCancel }: { onDone: (sig: { path?: string; name?: string; noPhotos: boolean }) => void; onCancel: () => void }) {
   const ref = useRef<SVGSVGElement>(null)
   const [paths, setPaths] = useState<string[]>([])
   const [name, setName] = useState('')
+  const [noPhotos, setNoPhotos] = useState(false)
   const drawing = useRef(false)
   const point = (e: PointerEvent) => {
     const r = ref.current!.getBoundingClientRect()
@@ -66,10 +67,14 @@ function SignaturePad({ onDone, onCancel }: { onDone: (sig: { path?: string; nam
       <Field label="O escriba su nombre completo">
         <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
       </Field>
+      <label className="check mt">
+        <input type="checkbox" checked={noPhotos} onChange={(e) => setNoPhotos(e.target.checked)} />
+        No autorizo el uso de fotos de mi propiedad (cláusula 10)
+      </label>
       <div className="sheet__foot sheet__foot--inline">
         <Button kind="plain" onClick={() => setPaths([])} disabled={!paths.length}>Borrar</Button>
         <Button kind="plain" onClick={onCancel}>Cancelar</Button>
-        <Button kind="primary" icon="check" onClick={() => onDone(paths.length ? { path: paths.join(' ') } : { name: name.trim() })} disabled={!paths.length && !name.trim()}>Firmar</Button>
+        <Button kind="primary" icon="check" onClick={() => onDone(paths.length ? { path: paths.join(' '), noPhotos } : { name: name.trim(), noPhotos })} disabled={!paths.length && !name.trim()}>Firmar</Button>
       </div>
     </>
   )
@@ -87,6 +92,29 @@ export function ContractDetail({ id }: { id: string }) {
 
   const total = quoteTotal(q)
   const deposit = (total * q.depositPct) / 100
+  const earliestStart = addBusinessDays(k.signed ?? iso(today()), 3)
+  // what was already billed for this quote (deposit, balance)
+  const billedFor = db.invoices.filter((i) => i.lines.some((l) => l.desc.includes(q.number)))
+  const billed = billedFor.reduce((a, i) => a + invoiceTotal(i), 0)
+  const balanceBilled = billedFor.some((i) => i.lines.some((l) => l.desc.startsWith('Saldo')))
+  const billBalance = () => {
+    const fid = uid('f')
+    const amount = Math.round((total - billed) * 100) / 100
+    update((d) => {
+      d.invoices.unshift({ id: fid, number: nextNumber('F', d.invoices), clientId: k.clientId, issued: iso(today()), due: addDays(today(), TERMS.balanceDueDays), lines: [{ id: uid('l'), desc: `Saldo · ${q.number} ${q.title}`, qty: 1, unit: 'servicio', price: amount }], payments: [] })
+    })
+    log(`Factura del saldo de ${k.number} creada para ${c.name}`, 'Factura del saldo creada')
+    go(`/facturas/${fid}`)
+  }
+  const setDates = (start: string, end: string) => {
+    // ignore partial dates typed digit by digit (e.g. 0002-…) and keep end ≥ start
+    if (!start || start < iso(today())) return
+    patch({ start, end: end < start ? start : end })
+  }
+  const sendForSignature = () => {
+    if (missing && !window.confirm(`Faltan ${missing} requisito${missing > 1 ? 's' : ''} de Virginia y el contrato mostrará campos PENDIENTE. ¿Enviar de todos modos (demostración)?`)) return
+    setSending(true)
+  }
   const lic = business.license
   const patch = (p: Partial<Contract>) => update((d) => { Object.assign(d.contracts.find((x) => x.id === id)!, p) })
 
@@ -101,6 +129,7 @@ export function ContractDetail({ id }: { id: string }) {
     [true, 'Cambios por escrito firmados por ambas partes'],
     [Boolean(TERMS.noticeAddress), 'Aviso de cancelación con dirección (3 días hábiles)', 'Agregue la dirección postal en src/portal/terms.ts (noticeAddress).'],
     [lic.insured, 'Seguro de responsabilidad confirmado', 'Marque business.license.insured en site.config.ts cuando esté confirmado.'],
+    [k.start >= earliestStart, 'Inicio después del plazo de cancelación (3 días hábiles)', `Con la firma ${k.signed ? 'del ' + fmtDate(k.signed) : 'de hoy'}, el trabajo puede empezar desde el ${fmtDate(earliestStart)}.`],
     [k.status === 'Firmado', 'Firma del cliente y del contratista antes de empezar'],
   ]
   const missing = checks.filter(([ok]) => !ok).length
@@ -195,7 +224,7 @@ export function ContractDetail({ id }: { id: string }) {
           <h4>10. Fotos del trabajo</h4>
           <p>
             El Contratista puede fotografiar el trabajo y usar las fotos en su sitio web y redes sociales, sin mostrar la dirección, nombres ni
-            números de casa. El Cliente puede negarse marcando aquí: ☐ No autorizo el uso de fotos.
+            números de casa. El Cliente puede negarse marcando aquí: {k.noPhotos ? '☑' : '☐'} No autorizo el uso de fotos.
           </p>
 
           <h4>11. Derecho a cancelar</h4>
@@ -245,13 +274,13 @@ export function ContractDetail({ id }: { id: string }) {
             {k.status === 'Borrador' ? (
               <div className="form">
                 <div className="form__row">
-                  <Field label="Inicio"><input type="date" value={k.start} onChange={(e) => patch({ start: e.target.value })} /></Field>
-                  <Field label="Terminación"><input type="date" value={k.end} min={k.start} onChange={(e) => patch({ end: e.target.value })} /></Field>
+                  <Field label="Inicio"><input type="date" value={k.start} min={iso(today())} onChange={(e) => setDates(e.target.value, k.end)} /></Field>
+                  <Field label="Terminación"><input type="date" value={k.end} min={k.start} onChange={(e) => e.target.value >= k.start && patch({ end: e.target.value })} /></Field>
                 </div>
               </div>
             ) : null}
             <div className="side-actions">
-              {k.status === 'Borrador' ? <Button kind="primary" icon="send" className="btn--block" onClick={() => setSending(true)}>Enviar para firma</Button> : null}
+              {k.status === 'Borrador' ? <Button kind="primary" icon="send" className="btn--block" onClick={sendForSignature}>Enviar para firma</Button> : null}
               {k.status === 'Enviado' ? (
                 <>
                   <Button kind="primary" icon="sign" className="btn--block" onClick={() => setSigning(true)}>Simular firma del cliente</Button>
@@ -262,6 +291,7 @@ export function ContractDetail({ id }: { id: string }) {
                 <>
                   <p className="ok-line"><Icon name="check" size={16} /> Firmado {k.signed ? rel(k.signed) : ''}</p>
                   <a className="btn btn--primary btn--block" href={`#/calendario?nuevo=1&dia=${k.start}&cliente=${k.clientId}&titulo=${encodeURIComponent(q.title)}`}><Icon name="calendar" size={18} /> Programar trabajo</a>
+                  {!balanceBilled && total - billed > 0.01 ? <Button icon="card" className="btn--block" onClick={billBalance}>Facturar saldo ({money(total - billed)})</Button> : null}
                 </>
               ) : null}
               <a className="btn btn--plain btn--block" href={`#/cotizaciones/${q.id}`}><Icon name="quote" size={18} /> Ver cotización {q.number}</a>
@@ -297,7 +327,7 @@ export function ContractDetail({ id }: { id: string }) {
         <SignaturePad
           onCancel={() => setSigning(false)}
           onDone={(sig) => {
-            patch({ status: 'Firmado', signed: iso(today()), signature: sig.path, signedName: sig.name })
+            patch({ status: 'Firmado', signed: iso(today()), signature: sig.path, signedName: sig.name, noPhotos: sig.noPhotos })
             log(`Contrato ${k.number} firmado por ${c.name}`, 'Contrato firmado: ya puede programar el trabajo')
             setSigning(false)
           }}

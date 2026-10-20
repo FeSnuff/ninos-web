@@ -26,9 +26,10 @@ export type Client = {
 
 export type Unit = 'visita' | 'servicio' | 'yd³' | 'pie²' | 'pie lin.' | 'hora' | 'c/u'
 /** `cost` = estimated cost to Nino (materials + labor); internal, never shown to clients */
-export type PriceItem = { id: string; name: string; unit: Unit; price: number; cost: number; group: string }
+export type PriceItem = { id: string; name: string; unit: Unit; price: number; cost?: number; group: string }
 
-export type Line = { id: string; desc: string; qty: number; unit: Unit; price: number; cost?: number }
+/** `priceId` links the line to its price-book item (used to save packages) */
+export type Line = { id: string; desc: string; qty: number; unit: Unit; price: number; cost?: number; priceId?: string }
 
 /** One-tap bundles of price-book items for the quote editor */
 export type Package = { id: string; name: string; note: string; repeat?: 'Semanal' | 'Quincenal' | 'Mensual'; items: { priceId: string; qty: number }[] }
@@ -68,6 +69,8 @@ export type Contract = {
   signature?: string
   /** typed signature (keyboard alternative to drawing) */
   signedName?: string
+  /** client declined the use of job photos (contract §10) */
+  noPhotos?: boolean
 }
 
 export type EventType = 'Mantenimiento' | 'Proyecto' | 'Estimado' | 'Riego' | 'Interno'
@@ -155,7 +158,18 @@ export function margin(lines: Line[]) {
   return { profit: revenue - cost, pct: Math.round(((revenue - cost) / revenue) * 100), partial: known.length < lines.length }
 }
 /** price-book item → quote line */
-export const lineFrom = (p: PriceItem, qty = 1): Line => ({ id: uid('l'), desc: p.name, qty, unit: p.unit, price: p.price, cost: p.cost })
+export const lineFrom = (p: PriceItem, qty = 1): Line => ({ id: uid('l'), desc: p.name, qty, unit: p.unit, price: p.price, cost: p.cost, priceId: p.id })
+
+/** date + n business days (Mon–Fri), for the 3-day cancellation period */
+export function addBusinessDays(s: string, n: number) {
+  let d = s
+  while (n > 0) {
+    d = addDays(d, 1)
+    const wd = parse(d).getDay()
+    if (wd !== 0 && wd !== 6) n--
+  }
+  return d
+}
 export const quoteTotal = (q: Pick<Quote, 'lines' | 'taxPct'>) => subtotal(q.lines) * (1 + q.taxPct / 100)
 export const invoiceTotal = (i: Invoice) => subtotal(i.lines)
 export const invoicePaid = (i: Invoice) => i.payments.reduce((a, p) => a + p.amount, 0)
@@ -201,50 +215,50 @@ export function seed(): Db {
   ]
 
   const prices: PriceItem[] = [
-    { id: 'p1', group: 'Césped', name: 'Corte, bordes y soplado (lote estándar)', unit: 'visita', price: 55, cost: 24 },
-    { id: 'p2', group: 'Césped', name: 'Aireación y resiembra', unit: 'servicio', price: 195, cost: 95 },
-    { id: 'p3', group: 'Césped', name: 'Instalación de césped en rollo', unit: 'pie²', price: 1.85, cost: 0.95 },
-    { id: 'p4', group: 'Jardineras', name: 'Mulch instalado (negro o café)', unit: 'yd³', price: 95, cost: 52 },
-    { id: 'p5', group: 'Jardineras', name: 'Piedra de río instalada', unit: 'yd³', price: 165, cost: 98 },
-    { id: 'p6', group: 'Jardineras', name: 'Malla antimaleza', unit: 'pie²', price: 0.65, cost: 0.28 },
-    { id: 'p7', group: 'Jardineras', name: 'Borde de adoquín', unit: 'pie lin.', price: 14, cost: 7.5 },
-    { id: 'p8', group: 'Jardineras', name: 'Plantas (arbusto 3 gal.)', unit: 'c/u', price: 48, cost: 26 },
-    { id: 'p9', group: 'Poda', name: 'Recorte de arbustos y setos', unit: 'hora', price: 65, cost: 34 },
-    { id: 'p10', group: 'Limpiezas', name: 'Limpieza de otoño', unit: 'servicio', price: 280, cost: 140 },
-    { id: 'p11', group: 'Limpiezas', name: 'Recogida de hojas', unit: 'servicio', price: 180, cost: 90 },
-    { id: 'p12', group: 'Riego', name: 'Arranque de primavera', unit: 'servicio', price: 95, cost: 42 },
-    { id: 'p13', group: 'Riego', name: 'Cierre de invierno (blowout)', unit: 'servicio', price: 85, cost: 38 },
-    { id: 'p14', group: 'Riego', name: 'Reparación de riego', unit: 'hora', price: 85, cost: 44 },
-    { id: 'p15', group: 'Riego', name: 'Cabezal de aspersor', unit: 'c/u', price: 28, cost: 12 },
-    { id: 'p16', group: 'Riego', name: 'Caja de válvulas', unit: 'c/u', price: 145, cost: 78 },
-    { id: 'p17', group: 'Drenaje', name: 'Drenaje francés', unit: 'pie lin.', price: 38, cost: 21 },
-    { id: 'p18', group: 'Drenaje', name: 'Bajante enterrada con salida pop-up', unit: 'c/u', price: 425, cost: 230 },
-    { id: 'p19', group: 'Iluminación', name: 'Luz LED de camino', unit: 'c/u', price: 165, cost: 82 },
-    { id: 'p20', group: 'Iluminación', name: 'Transformador de bajo voltaje', unit: 'c/u', price: 350, cost: 190 },
+    { id: 'p1', group: 'Césped', name: 'Mantenimiento de césped: corte, perfilado de bordes y soplado', unit: 'visita', price: 55, cost: 24 },
+    { id: 'p2', group: 'Césped', name: 'Aireación mecánica y resiembra', unit: 'servicio', price: 195, cost: 95 },
+    { id: 'p3', group: 'Césped', name: 'Suministro e instalación de césped en rollo', unit: 'pie²', price: 1.85, cost: 0.95 },
+    { id: 'p4', group: 'Jardineras', name: 'Suministro e instalación de mulch (negro o café)', unit: 'yd³', price: 95, cost: 52 },
+    { id: 'p5', group: 'Jardineras', name: 'Suministro e instalación de piedra de río', unit: 'yd³', price: 165, cost: 98 },
+    { id: 'p6', group: 'Jardineras', name: 'Instalación de malla geotextil antimaleza', unit: 'pie²', price: 0.65, cost: 0.28 },
+    { id: 'p7', group: 'Jardineras', name: 'Instalación de borde de adoquín', unit: 'pie lin.', price: 14, cost: 7.5 },
+    { id: 'p8', group: 'Jardineras', name: 'Suministro y plantación de arbusto (3 gal.)', unit: 'c/u', price: 48, cost: 26 },
+    { id: 'p9', group: 'Poda', name: 'Poda y formación de arbustos y setos', unit: 'hora', price: 65, cost: 34 },
+    { id: 'p10', group: 'Limpiezas', name: 'Limpieza integral de otoño', unit: 'servicio', price: 280, cost: 140 },
+    { id: 'p11', group: 'Limpiezas', name: 'Retiro de hojas y residuos vegetales', unit: 'servicio', price: 180, cost: 90 },
+    { id: 'p12', group: 'Riego', name: 'Puesta en marcha del sistema de riego (primavera)', unit: 'servicio', price: 95, cost: 42 },
+    { id: 'p13', group: 'Riego', name: 'Cierre y purga del sistema de riego (winterización)', unit: 'servicio', price: 85, cost: 38 },
+    { id: 'p14', group: 'Riego', name: 'Diagnóstico y reparación del sistema de riego', unit: 'hora', price: 85, cost: 44 },
+    { id: 'p15', group: 'Riego', name: 'Reemplazo de cabezal de aspersor', unit: 'c/u', price: 28, cost: 12 },
+    { id: 'p16', group: 'Riego', name: 'Instalación de caja de válvulas', unit: 'c/u', price: 145, cost: 78 },
+    { id: 'p17', group: 'Drenaje', name: 'Instalación de drenaje francés', unit: 'pie lin.', price: 38, cost: 21 },
+    { id: 'p18', group: 'Drenaje', name: 'Extensión subterránea de bajante con salida emergente', unit: 'c/u', price: 425, cost: 230 },
+    { id: 'p19', group: 'Iluminación', name: 'Suministro e instalación de luminaria LED de camino', unit: 'c/u', price: 165, cost: 82 },
+    { id: 'p20', group: 'Iluminación', name: 'Suministro e instalación de transformador de bajo voltaje', unit: 'c/u', price: 350, cost: 190 },
   ]
   const P = (id: string, qty: number): Line => lineFrom(prices.find((x) => x.id === id)!, qty)
 
   const packages: Package[] = [
-    { id: 'k-sem', name: 'Mantenimiento semanal', note: 'Corte, bordes y soplado cada semana (abr–nov)', repeat: 'Semanal', items: [{ priceId: 'p1', qty: 1 }] },
-    { id: 'k-quin', name: 'Mantenimiento quincenal', note: 'Cada dos semanas, ideal en verano y otoño', repeat: 'Quincenal', items: [{ priceId: 'p1', qty: 1 }] },
-    { id: 'k-prim', name: 'Paquete de primavera', note: 'Arranque de riego, mulch fresco y recorte', items: [{ priceId: 'p12', qty: 1 }, { priceId: 'p4', qty: 4 }, { priceId: 'p9', qty: 2 }] },
-    { id: 'k-oto', name: 'Otoño completo', note: 'Limpieza, hojas, aireación y resiembra', items: [{ priceId: 'p10', qty: 1 }, { priceId: 'p11', qty: 1 }, { priceId: 'p2', qty: 1 }] },
-    { id: 'k-cierre', name: 'Cierre de riego', note: 'Winterización antes de la primera helada', items: [{ priceId: 'p13', qty: 1 }] },
-    { id: 'k-jard', name: 'Refresh de jardineras', note: 'Mulch, 3 plantas nuevas y recorte', items: [{ priceId: 'p4', qty: 3 }, { priceId: 'p8', qty: 3 }, { priceId: 'p9', qty: 2 }] },
-    { id: 'k-piedra', name: 'Piedra de río (townhouse)', note: 'Malla, piedra y borde de adoquín, como el proyecto de la galería', items: [{ priceId: 'p6', qty: 120 }, { priceId: 'p5', qty: 2 }, { priceId: 'p7', qty: 46 }] },
-    { id: 'k-dren', name: 'Drenaje de bajante', note: 'Bajante enterrada con salida pop-up', items: [{ priceId: 'p18', qty: 1 }, { priceId: 'p17', qty: 20 }] },
-    { id: 'k-luz', name: 'Iluminación básica', note: '6 luces de camino y transformador', items: [{ priceId: 'p19', qty: 6 }, { priceId: 'p20', qty: 1 }] },
+    { id: 'k-sem', name: 'Mantenimiento semanal de césped', note: 'Visita semanal de corte, perfilado y soplado (abril a noviembre)', repeat: 'Semanal', items: [{ priceId: 'p1', qty: 1 }] },
+    { id: 'k-quin', name: 'Mantenimiento quincenal de césped', note: 'Visita cada dos semanas, recomendada en verano y otoño', repeat: 'Quincenal', items: [{ priceId: 'p1', qty: 1 }] },
+    { id: 'k-prim', name: 'Programa de primavera', note: 'Puesta en marcha del riego, mulch nuevo y poda', items: [{ priceId: 'p12', qty: 1 }, { priceId: 'p4', qty: 4 }, { priceId: 'p9', qty: 2 }] },
+    { id: 'k-oto', name: 'Programa de otoño', note: 'Limpieza integral, retiro de hojas, aireación y resiembra', items: [{ priceId: 'p10', qty: 1 }, { priceId: 'p11', qty: 1 }, { priceId: 'p2', qty: 1 }] },
+    { id: 'k-cierre', name: 'Winterización del sistema de riego', note: 'Cierre y purga antes de la primera helada', items: [{ priceId: 'p13', qty: 1 }] },
+    { id: 'k-jard', name: 'Renovación de jardineras', note: 'Mulch nuevo, 3 arbustos y poda', items: [{ priceId: 'p4', qty: 3 }, { priceId: 'p8', qty: 3 }, { priceId: 'p9', qty: 2 }] },
+    { id: 'k-piedra', name: 'Jardineras de piedra de río', note: 'Malla geotextil, piedra de río y borde de adoquín, como el proyecto de la galería', items: [{ priceId: 'p6', qty: 120 }, { priceId: 'p5', qty: 2 }, { priceId: 'p7', qty: 46 }] },
+    { id: 'k-dren', name: 'Drenaje de bajante pluvial', note: 'Extensión subterránea con salida emergente y drenaje francés', items: [{ priceId: 'p18', qty: 1 }, { priceId: 'p17', qty: 20 }] },
+    { id: 'k-luz', name: 'Iluminación de caminos', note: '6 luminarias LED y transformador de bajo voltaje', items: [{ priceId: 'p19', qty: 6 }, { priceId: 'p20', qty: 1 }] },
   ]
 
   const quotes: Quote[] = [
     { id: 'q1', number: 'Q-1048', clientId: 'c7', title: 'Jardineras de piedra de río (townhouse)', status: 'Enviada', created: d(-6), sent: d(-5), validDays: 30, lines: [P('p6', 120), P('p5', 2), P('p7', 46)], taxPct: 0, depositPct: 30, notes: 'Incluye retirar maleza y nivelar. Ambos lados de la escalera.' },
     { id: 'q2', number: 'Q-1049', clientId: 'c4', title: 'Renovación de jardineras del frente', status: 'Vista', created: d(-4), sent: d(-3), viewed: d(-2), validDays: 30, lines: [P('p4', 6), P('p8', 7), P('p9', 4)], taxPct: 0, depositPct: 30, notes: 'Plantas a elegir con la clienta.' },
     { id: 'q3', number: 'Q-1050', clientId: 'c11', title: 'Iluminación de camino y frente', status: 'Borrador', created: d(-1), validDays: 30, lines: [P('p19', 8), P('p20', 1)], taxPct: 0, depositPct: 50, notes: '' },
-    { id: 'q4', number: 'Q-1045', clientId: 'c5', title: 'Drenaje de bajante izquierda', status: 'Aprobada', created: d(-20), sent: d(-19), viewed: d(-18), decided: d(-15), validDays: 30, lines: [P('p18', 1), P('p17', 30)], taxPct: 0, depositPct: 30, notes: 'Restaurar el césped con semilla al terminar.' },
-    { id: 'q5', number: 'Q-1046', clientId: 'c1', title: 'Limpieza de otoño y mulch', status: 'Aprobada', created: d(-14), sent: d(-14), viewed: d(-13), decided: d(-12), validDays: 30, lines: [P('p10', 1), P('p4', 8)], taxPct: 0, depositPct: 0, notes: '' },
-    { id: 'q6', number: 'Q-1043', clientId: 'c13', title: 'Recorte de setos', status: 'Rechazada', created: d(-30), sent: d(-29), viewed: d(-27), decided: d(-25), validDays: 30, lines: [P('p9', 5)], taxPct: 0, depositPct: 0, notes: 'El cliente dijo que lo hará él mismo este año.' },
-    { id: 'q7', number: 'Q-1047', clientId: 'c3', title: 'Cierre de invierno + 3 cabezales', status: 'Enviada', created: d(-8), sent: d(-8), validDays: 30, lines: [P('p13', 1), P('p15', 3)], taxPct: 0, depositPct: 0, notes: '' },
-    { id: 'q8', number: 'Q-1051', clientId: 'c14', title: 'Mantenimiento mensual (nov–mar)', status: 'Borrador', created: t, validDays: 30, lines: [P('p11', 2), P('p9', 6)], taxPct: 0, depositPct: 0, notes: 'Horario fuera de consulta.' },
+    { id: 'q4', number: 'Q-1045', clientId: 'c5', title: 'Drenaje de bajante pluvial (lado izquierdo)', status: 'Aprobada', created: d(-20), sent: d(-19), viewed: d(-18), decided: d(-15), validDays: 30, lines: [P('p18', 1), P('p17', 30)], taxPct: 0, depositPct: 30, notes: 'Restaurar el césped con semilla al terminar.' },
+    { id: 'q5', number: 'Q-1046', clientId: 'c1', title: 'Limpieza integral de otoño y mulch', status: 'Aprobada', created: d(-14), sent: d(-14), viewed: d(-13), decided: d(-12), validDays: 30, lines: [P('p10', 1), P('p4', 8)], taxPct: 0, depositPct: 0, notes: '' },
+    { id: 'q6', number: 'Q-1043', clientId: 'c13', title: 'Poda de setos', status: 'Rechazada', created: d(-30), sent: d(-29), viewed: d(-27), decided: d(-25), validDays: 30, lines: [P('p9', 5)], taxPct: 0, depositPct: 0, notes: 'El cliente dijo que lo hará él mismo este año.' },
+    { id: 'q7', number: 'Q-1047', clientId: 'c3', title: 'Winterización del riego y reemplazo de 3 cabezales', status: 'Enviada', created: d(-8), sent: d(-8), validDays: 30, lines: [P('p13', 1), P('p15', 3)], taxPct: 0, depositPct: 0, notes: '' },
+    { id: 'q8', number: 'Q-1051', clientId: 'c14', title: 'Mantenimiento mensual de temporada baja (nov–mar)', status: 'Borrador', created: t, validDays: 30, lines: [P('p11', 2), P('p9', 6)], taxPct: 0, depositPct: 0, notes: 'Horario fuera de consulta.' },
   ]
 
   const contracts: Contract[] = [
@@ -273,7 +287,7 @@ export function seed(): Db {
       if (repeat === 'Quincenal' && Math.floor((n + 21) / 7) % 2) continue
       jobs.push({
         id: uid('j'),
-        title: clientId === 'c8' ? 'Mantenimiento áreas comunes' : 'Corte, bordes y soplado',
+        title: clientId === 'c8' ? 'Mantenimiento de áreas comunes' : 'Mantenimiento de césped',
         clientId,
         date: day,
         time,
@@ -289,35 +303,35 @@ export function seed(): Db {
   // make sure "today" always has a full day, whatever weekday it is (Sunday stays free)
   if (parse(t).getDay() !== 0 && !jobs.some((j) => j.date === t && j.type === 'Mantenimiento')) {
     for (const [clientId, , time, crew, repeat, amount] of route.slice(0, 3))
-      jobs.push({ id: uid('j'), title: 'Corte, bordes y soplado', clientId, date: t, time, hours: 1, type: 'Mantenimiento', crew, status: 'Programado', repeat, amount })
+      jobs.push({ id: uid('j'), title: 'Mantenimiento de césped', clientId, date: t, time, hours: 1, type: 'Mantenimiento', crew, status: 'Programado', repeat, amount })
   }
   const one = (j: Omit<Job, 'id'>) => jobs.push({ id: uid('j'), ...j })
-  one({ title: 'Estimado: jardineras del frente', clientId: 'c4', date: t, time: '14:00', hours: 1, type: 'Estimado', crew: 'Equipo 1', status: 'Programado' })
-  one({ title: 'Cierre de invierno (riego)', clientId: 'c9', date: t, time: '13:00', hours: 1, type: 'Riego', crew: 'Equipo 2', status: 'Programado', amount: 85 })
-  one({ title: 'Drenaje de bajante izquierda', clientId: 'c5', date: d(3), time: '08:00', hours: 8, type: 'Proyecto', crew: 'Equipo 2', status: 'Programado', notes: 'Contrato C-2031. Llamar a Miss Utility (811) antes de excavar.' })
-  one({ title: 'Limpieza de otoño y mulch', clientId: 'c1', date: d(5), time: '08:00', hours: 6, type: 'Proyecto', crew: 'Equipo 1', status: 'Programado', notes: 'Esperando firma del contrato C-2032.' })
-  one({ title: 'Cierre de invierno (riego)', clientId: 'c3', date: d(9), time: '10:00', hours: 1, type: 'Riego', crew: 'Equipo 1', status: 'Programado', amount: 85 })
-  one({ title: 'Cierre de invierno (riego)', clientId: 'c1', date: d(12), time: '10:00', hours: 1, type: 'Riego', crew: 'Equipo 1', status: 'Programado', amount: 85 })
-  one({ title: 'Cierre de invierno (riego)', clientId: 'c5', date: d(13), time: '11:00', hours: 1, type: 'Riego', crew: 'Equipo 2', status: 'Programado', amount: 85 })
-  one({ title: 'Estimado: piedra de río', clientId: 'c7', date: d(1), time: '16:00', hours: 1, type: 'Estimado', crew: 'Equipo 1', status: 'Programado' })
-  one({ title: 'Estimado: iluminación', clientId: 'c11', date: d(2), time: '17:00', hours: 1, type: 'Estimado', crew: 'Equipo 1', status: 'Programado' })
-  one({ title: 'Servicio de cortadoras y cuchillas', date: d(6), time: '15:00', hours: 3, type: 'Interno', crew: 'Equipo 2', status: 'Programado', notes: 'Cambio de aceite y afilado antes de la temporada de hojas.' })
+  one({ title: 'Visita de estimado: jardineras del frente', clientId: 'c4', date: t, time: '14:00', hours: 1, type: 'Estimado', crew: 'Equipo 1', status: 'Programado' })
+  one({ title: 'Winterización del sistema de riego', clientId: 'c9', date: t, time: '13:00', hours: 1, type: 'Riego', crew: 'Equipo 2', status: 'Programado', amount: 85 })
+  one({ title: 'Drenaje de bajante pluvial (lado izquierdo)', clientId: 'c5', date: d(3), time: '08:00', hours: 8, type: 'Proyecto', crew: 'Equipo 2', status: 'Programado', notes: 'Contrato C-2031. Llamar a Miss Utility (811) antes de excavar.' })
+  one({ title: 'Limpieza integral de otoño y mulch', clientId: 'c1', date: d(5), time: '08:00', hours: 6, type: 'Proyecto', crew: 'Equipo 1', status: 'Programado', notes: 'Esperando firma del contrato C-2032.' })
+  one({ title: 'Winterización del sistema de riego', clientId: 'c3', date: d(9), time: '10:00', hours: 1, type: 'Riego', crew: 'Equipo 1', status: 'Programado', amount: 85 })
+  one({ title: 'Winterización del sistema de riego', clientId: 'c1', date: d(12), time: '10:00', hours: 1, type: 'Riego', crew: 'Equipo 1', status: 'Programado', amount: 85 })
+  one({ title: 'Winterización del sistema de riego', clientId: 'c5', date: d(13), time: '11:00', hours: 1, type: 'Riego', crew: 'Equipo 2', status: 'Programado', amount: 85 })
+  one({ title: 'Visita de estimado: piedra de río', clientId: 'c7', date: d(1), time: '16:00', hours: 1, type: 'Estimado', crew: 'Equipo 1', status: 'Programado' })
+  one({ title: 'Visita de estimado: iluminación exterior', clientId: 'c11', date: d(2), time: '17:00', hours: 1, type: 'Estimado', crew: 'Equipo 1', status: 'Programado' })
+  one({ title: 'Mantenimiento de cortadoras y afilado de cuchillas', date: d(6), time: '15:00', hours: 3, type: 'Interno', crew: 'Equipo 2', status: 'Programado', notes: 'Cambio de aceite y afilado antes de la temporada de hojas.' })
   one({ title: 'Renovar seguro de responsabilidad', date: d(17), time: '09:00', hours: 1, type: 'Interno', crew: 'Equipo 1', status: 'Programado', notes: 'Pedir certificado para Greenbriar HOA.' })
-  one({ title: 'Reparación de riego zona 3', clientId: 'c9', date: d(-3), time: '10:00', hours: 2, type: 'Riego', crew: 'Equipo 2', status: 'Completado', amount: 315 })
-  one({ title: 'Recorte de arbustos', clientId: 'c13', date: d(-2), time: '13:00', hours: 3, type: 'Mantenimiento', crew: 'Equipo 1', status: 'Completado', amount: 195 })
+  one({ title: 'Reparación de válvula del riego (zona 3)', clientId: 'c9', date: d(-3), time: '10:00', hours: 2, type: 'Riego', crew: 'Equipo 2', status: 'Completado', amount: 315 })
+  one({ title: 'Poda de arbustos', clientId: 'c13', date: d(-2), time: '13:00', hours: 3, type: 'Mantenimiento', crew: 'Equipo 1', status: 'Completado', amount: 195 })
 
   /* Invoices */
   const L = (desc: string, qty: number, unit: Unit, price: number): Line => ({ id: uid('l'), desc, qty, unit, price })
   const invoices: Invoice[] = [
-    { id: 'f1', number: 'F-3101', clientId: 'c8', issued: d(-50), due: d(-20), lines: [L('Mantenimiento áreas comunes (septiembre)', 4, 'visita', 420)], payments: [{ date: d(-22), amount: 1680, method: 'ACH' }] },
-    { id: 'f2', number: 'F-3104', clientId: 'c2', issued: d(-38), due: d(-23), lines: [L('Corte, bordes y soplado (septiembre)', 4, 'visita', 55)], payments: [] },
-    { id: 'f3', number: 'F-3106', clientId: 'c6', issued: d(-25), due: d(-10), lines: [L('Corte, bordes y soplado', 4, 'visita', 60), L('Recorte de arbustos', 2, 'hora', 65)], payments: [{ date: d(-12), amount: 150, method: 'Efectivo' }] },
-    { id: 'f4', number: 'F-3107', clientId: 'c1', issued: d(-20), due: d(-5), lines: [L('Corte, bordes y soplado', 4, 'visita', 65)], payments: [{ date: d(-6), amount: 260, method: 'Zelle' }] },
-    { id: 'f5', number: 'F-3108', clientId: 'c5', issued: d(-15), due: d(15), lines: [L('Depósito 30 % · Q-1045 Drenaje de bajante izquierda', 1, 'servicio', 469.5)], payments: [{ date: d(-13), amount: 469.5, method: 'Tarjeta' }] },
-    { id: 'f6', number: 'F-3109', clientId: 'c8', issued: d(-19), due: d(11), lines: [L('Mantenimiento áreas comunes (octubre)', 4, 'visita', 420)], payments: [] },
-    { id: 'f7', number: 'F-3110', clientId: 'c12', issued: d(-8), due: d(7), lines: [L('Corte, bordes y soplado', 3, 'visita', 55)], payments: [] },
-    { id: 'f8', number: 'F-3111', clientId: 'c10', issued: d(-12), due: d(3), lines: [L('Corte, bordes y soplado', 4, 'visita', 55), L('Recogida de hojas', 1, 'servicio', 180)], payments: [{ date: d(-1), amount: 400, method: 'Tarjeta' }] },
-    { id: 'f9', number: 'F-3112', clientId: 'c3', issued: d(-40), due: d(-26), lines: [L('Reparación de riego', 2, 'hora', 85), L('Cabezal de aspersor', 4, 'c/u', 28)], payments: [{ date: d(-28), amount: 282, method: 'Tarjeta' }] },
+    { id: 'f1', number: 'F-3101', clientId: 'c8', issued: d(-50), due: d(-20), lines: [L('Mantenimiento de áreas comunes (septiembre)', 4, 'visita', 420)], payments: [{ date: d(-22), amount: 1680, method: 'ACH' }] },
+    { id: 'f2', number: 'F-3104', clientId: 'c2', issued: d(-38), due: d(-23), lines: [L('Mantenimiento de césped (septiembre)', 4, 'visita', 55)], payments: [] },
+    { id: 'f3', number: 'F-3106', clientId: 'c6', issued: d(-25), due: d(-10), lines: [L('Mantenimiento de césped', 4, 'visita', 60), L('Poda de arbustos y setos', 2, 'hora', 65)], payments: [{ date: d(-12), amount: 150, method: 'Efectivo' }] },
+    { id: 'f4', number: 'F-3107', clientId: 'c1', issued: d(-20), due: d(-5), lines: [L('Mantenimiento de césped', 4, 'visita', 65)], payments: [{ date: d(-6), amount: 260, method: 'Zelle' }] },
+    { id: 'f5', number: 'F-3108', clientId: 'c5', issued: d(-15), due: d(15), lines: [L('Depósito 30 % · Q-1045 Drenaje de bajante pluvial (lado izquierdo)', 1, 'servicio', 469.5)], payments: [{ date: d(-13), amount: 469.5, method: 'Tarjeta' }] },
+    { id: 'f6', number: 'F-3109', clientId: 'c8', issued: d(-19), due: d(11), lines: [L('Mantenimiento de áreas comunes (octubre)', 4, 'visita', 420)], payments: [] },
+    { id: 'f7', number: 'F-3110', clientId: 'c12', issued: d(-8), due: d(7), lines: [L('Mantenimiento de césped', 3, 'visita', 55)], payments: [] },
+    { id: 'f8', number: 'F-3111', clientId: 'c10', issued: d(-12), due: d(3), lines: [L('Mantenimiento de césped', 4, 'visita', 55), L('Retiro de hojas y residuos vegetales', 1, 'servicio', 180)], payments: [{ date: d(-1), amount: 400, method: 'Tarjeta' }] },
+    { id: 'f9', number: 'F-3112', clientId: 'c3', issued: d(-40), due: d(-26), lines: [L('Diagnóstico y reparación del sistema de riego', 2, 'hora', 85), L('Reemplazo de cabezal de aspersor', 4, 'c/u', 28)], payments: [{ date: d(-28), amount: 282, method: 'Tarjeta' }] },
   ]
 
   const templates: Template[] = [

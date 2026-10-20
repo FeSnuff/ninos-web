@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { addDays, daysBetween, invoiceBalance, invoiceStatus, iso, nextWorkday, quoteTotal, today, uid, type Db, type Job, nextNumber } from '../data'
 import { go, useStore } from '../store'
+import { TERMS } from '../terms'
 import { Avatar, Badge, Button, Card, Empty, Header, Icon, Sheet, Stat, TYPE_TONE, fmtDate, fmtLong, fmtTime, money, money0, rel, type IconName } from '../ui'
 
 const greeting = () => {
@@ -18,7 +19,7 @@ export function invoiceFromJob(d: Db, job: Job, id: string) {
     number: nextNumber('F', d.invoices),
     clientId: job.clientId!,
     issued: iso(today()),
-    due: addDays(today(), 15),
+    due: addDays(today(), TERMS.balanceDueDays),
     lines: [{ id: uid('l'), desc: job.title, qty: 1, unit: 'servicio' as const, price: job.amount ?? 0 }],
     payments: [],
   }
@@ -101,7 +102,7 @@ export function Today() {
   const m = today().getMonth()
   if (m >= 8 && m <= 10) {
     const irrigation = db.clients.filter((c) => c.tags.includes('Riego'))
-    const booked = new Set(db.jobs.filter((j) => j.date >= t && /cierre de invierno/i.test(j.title)).map((j) => j.clientId))
+    const booked = new Set(db.jobs.filter((j) => j.date >= t && /winterizaci[oó]n|cierre de invierno/i.test(j.title)).map((j) => j.clientId))
     const missing = irrigation.filter((c) => !booked.has(c.id))
     if (missing.length)
       alerts.push({

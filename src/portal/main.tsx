@@ -159,7 +159,7 @@ function Shell({ onOut }: { onOut: () => void }) {
         </nav>
         <div className="side__foot">
           <a className="side__link" href={SITE_HOME}><Icon name="globe" size={19} /> Ver sitio web</a>
-          <button type="button" className="side__link" onClick={() => { reset(); toast('Datos de prueba restablecidos') }}><Icon name="repeat" size={19} /> Restablecer demo</button>
+          <button type="button" className="side__link" onClick={() => window.confirm('¿Restablecer todos los datos de prueba? Se pierden los cambios de esta sesión.') && (reset(), toast('Datos de prueba restablecidos'))}><Icon name="repeat" size={19} /> Restablecer demo</button>
           <button type="button" className="side__link" onClick={onOut}><Icon name="logout" size={19} /> Cerrar sesión</button>
           <div className="side__user">
             <span className="avatar avatar--sm avatar--0">N</span>

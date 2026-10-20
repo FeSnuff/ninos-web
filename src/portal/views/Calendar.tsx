@@ -58,6 +58,7 @@ export function CalendarView({ query }: { query: URLSearchParams }) {
     log(`${j.title} completado`, 'Marcado como completado')
   }
   const remove = (j: Job) => {
+    if (!window.confirm(`¿Eliminar "${j.title}" del ${fmtDate(j.date)}?`)) return
     update((d) => { d.jobs = d.jobs.filter((x) => x.id !== j.id) })
     log(`Evento eliminado: ${j.title}`, 'Evento eliminado')
   }
@@ -191,7 +192,11 @@ function NewEvent({ open, day, clientId, title: presetTitle, onClose }: { open: 
     const dates = step
       ? Array.from({ length: Math.ceil(56 / step) + 1 }, (_, i) => addDays(f.date, i * step))
       : f.repeat === 'Mensual'
-        ? [0, 1, 2].map((i) => { const d = parse(f.date); d.setMonth(d.getMonth() + i); return iso(d) })
+        ? [0, 1, 2].map((i) => {
+            const s = parse(f.date)
+            const last = new Date(s.getFullYear(), s.getMonth() + i + 1, 0).getDate()
+            return iso(new Date(s.getFullYear(), s.getMonth() + i, Math.min(s.getDate(), last)))
+          })
         : [f.date]
     const ids = dates.map(() => uid('j'))
     update((d) => {

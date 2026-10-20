@@ -195,9 +195,9 @@ export function Avatar({ name, size = 40 }: { name: string; size?: number }) {
 
 export function Segmented<T extends string>({ value, options, onChange, label }: { value: T; options: { value: T; label: string; count?: number }[]; onChange: (v: T) => void; label: string }) {
   return (
-    <div className="seg" role="tablist" aria-label={label}>
+    <div className="seg" role="group" aria-label={label}>
       {options.map((o) => (
-        <button key={o.value} type="button" role="tab" aria-selected={o.value === value} className={o.value === value ? 'seg__btn is-on' : 'seg__btn'} onClick={() => onChange(o.value)}>
+        <button key={o.value} type="button" aria-pressed={o.value === value} className={o.value === value ? 'seg__btn is-on' : 'seg__btn'} onClick={() => onChange(o.value)}>
           {o.label}
           {o.count !== undefined ? <span className="seg__count">{o.count}</span> : null}
         </button>
