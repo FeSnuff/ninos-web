@@ -364,19 +364,6 @@
   padding-top: clamp(32px, 5vw, 64px);
 }
 
-.notice {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  margin: 8px 0 0;
-  padding: 10px 16px;
-  border-radius: var(--r-s);
-  background: var(--mist);
-  color: #134d73;
-  font-weight: 600;
-  font-size: 0.95rem;
-}
-
 /* ---------- Service cards ---------- */
 
 .tile {

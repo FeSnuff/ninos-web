@@ -1,8 +1,9 @@
 import { business, serviceAreas } from '../site.config'
-import { photos, type PhotoKey } from '../content/images'
+import { photos, projects } from '../content/images'
+import { activeServices } from '../content/services'
 import { href, photoManifest } from '../lib/url'
-import { pagePath, s, tr } from '../i18n'
-import { CtaBand, PageHeader, Photo, SectionHead, Steps } from '../components/Blocks'
+import { pagePath, s, servicePath, tr } from '../i18n'
+import { CtaBand, PageHeader, Photo, ProjectPhotos, SectionHead, Steps } from '../components/Blocks'
 import { EstimateForm } from '../components/EstimateForm'
 import { sms, tel, whatsappUrl } from '../components/Chrome'
 import { Icon } from '../components/Icon'
@@ -43,31 +44,30 @@ export function ServiceAreas() {
 
 /* ---------- Gallery ---------- */
 
-const GALLERY: PhotoKey[] = ['lawnRows', 'sprinklerSunset', 'mulchEdge', 'hedgeHouse', 'pathLight', 'backyard', 'flowerBed', 'trench', 'bushLights', 'mower', 'sprinklerLight', 'yardTree']
-
 export function Gallery() {
   const t = s()
+  // a project only shows while its service is offered on the site
+  const shown = projects.flatMap((pr) => {
+    const sv = activeServices.find((a) => a.slug.en === pr.service)
+    return sv ? [{ pr, sv }] : []
+  })
   return (
     <>
-      <PageHeader title={t.gallery.title} intro={t.gallery.intro} crumbs={[homeCrumb(), { name: t.nav.gallery, path: pagePath('gallery') }]}>
-        {/* TODO: remove this note when real project photos replace the samples */}
-        <p className="notice">
-          <Icon name="calendar" size={18} /> {t.gallery.notice}
-        </p>
-      </PageHeader>
+      <PageHeader title={t.gallery.title} intro={t.gallery.intro} crumbs={[homeCrumb(), { name: t.nav.gallery, path: pagePath('gallery') }]} />
       <section className="section section--flush-top">
-        <div className="wrap">
-          <ul className="gallery">
-            {GALLERY.map((k, i) => (
-              <li key={k} className={i % 5 === 0 ? 'gallery__item gallery__item--wide' : 'gallery__item'}>
-                <Photo
-                  name={k}
-                  width={i % 5 === 0 ? 1200 : 800}
-                  sizes={i % 5 === 0 ? '(min-width: 960px) 66vw, (min-width: 640px) 50vw, 100vw' : '(min-width: 960px) 33vw, (min-width: 640px) 50vw, 100vw'}
-                />
-              </li>
-            ))}
-          </ul>
+        <div className="wrap projects">
+          {shown.map(({ pr, sv }) => (
+            <article key={pr.id} className="project" aria-labelledby={`project-${pr.id}`}>
+              <div className="project__head">
+                <h2 id={`project-${pr.id}`}>{tr(pr.title)}</h2>
+                <p>{tr(pr.text)}</p>
+                <a className="project__link" href={href(servicePath(sv.slug))}>
+                  {t.gallery.viewService}: {tr(sv.name)} <Icon name="arrow" size={18} />
+                </a>
+              </div>
+              <ProjectPhotos items={pr.photos} />
+            </article>
+          ))}
         </div>
       </section>
       <CtaBand />
@@ -111,7 +111,7 @@ export function About() {
             ) : null}
           </div>
           <div className="split__media">
-            <Photo name="yardTree" width={1000} sizes="(min-width: 960px) 45vw, 100vw" className="rounded-tall" />
+            <Photo name="aerationCrew" width={1000} sizes="(min-width: 960px) 45vw, 100vw" className="rounded-tall" />
           </div>
         </div>
       </section>
@@ -152,7 +152,7 @@ export function FreeEstimate() {
               <li><a href={sms()}><Icon name="message" /> {t.form.sendText}</a></li>
               <li><Icon name="clock" /> {tr(business.hours[0].label)}</li>
             </ul>
-            <Photo name="sprinklerLight" width={800} sizes="(min-width: 960px) 30vw, 100vw" className="rounded hide-sm" />
+            <Photo name="brickBeds" width={800} sizes="(min-width: 960px) 30vw, 100vw" className="rounded hide-sm" />
           </aside>
         </div>
       </section>

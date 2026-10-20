@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { photos, type PhotoKey } from '../content/images'
+import { photos, type PhotoKey, type Project } from '../content/images'
 import { type SeasonSpan, type Service } from '../content/services'
 import { business } from '../site.config'
 import { href, photoSrc } from '../lib/url'
@@ -40,6 +40,24 @@ export function Photo({
       decoding={priority ? 'sync' : 'async'}
       fetchPriority={priority ? 'high' : undefined}
     />
+  )
+}
+
+/* ---------- Project photos with a Before / During / After badge (Gallery, Home spotlight) ---------- */
+
+export function ProjectPhotos({ items }: { items: Project['photos'] }) {
+  const stages = s().gallery.stages
+  return (
+    <ul className={items.length === 1 ? 'gallery gallery--single' : 'gallery'}>
+      {items.map(({ key, stage }) => (
+        <li key={key} className="gallery__item">
+          <figure>
+            <Photo name={key} width={800} sizes="(min-width: 960px) 33vw, (min-width: 640px) 50vw, 100vw" />
+            {stage ? <figcaption className={`stage stage--${stage}`}>{stages[stage]}</figcaption> : null}
+          </figure>
+        </li>
+      ))}
+    </ul>
   )
 }
 

@@ -64,7 +64,7 @@ const en = {
   estimate: 'Estimate',
   quickContact: 'Quick contact',
   region: 'Virginia',
-  footerBlurb: 'Lawn care, irrigation, drainage and landscape lighting for homes across Virginia.',
+  footerBlurb: 'Lawn care, mulch and beds, trimming, irrigation, drainage and landscape lighting for homes in Northern Virginia.',
   company: 'Company',
   talk: 'Talk to us',
   rights: 'All rights reserved.',
@@ -75,9 +75,9 @@ const en = {
   swipe: 'Swipe to see more',
 
   hero: {
-    kicker: 'Lawn & landscape care in Virginia',
+    kicker: 'Lawn & landscape care in Northern Virginia',
     title: 'Green lawns, clean beds and sprinklers that work.',
-    lede: 'Mowing, mulch, trimming, irrigation, drainage and landscape lighting for homes in Fairfax, Loudoun, Prince William and Arlington.',
+    lede: 'Mowing, mulch, river rock, trimming, irrigation repair, drainage and landscape lighting for homes in Fairfax, Loudoun, Prince William, Arlington and Alexandria.',
   },
   homeServices: { title: 'One crew for the whole yard', intro: 'From the grass to the sprinkler lines under it. Pick a service to see everything it includes.' },
   how: { title: 'How it works', intro: 'No pressure and no surprises. You get a clear quote before any work starts.', titleAbout: 'How we work' },
@@ -96,8 +96,8 @@ const en = {
   ],
   areasBlock: { title: 'Where we work', intro: 'Homes across Virginia. Not sure if we reach your street? Call or text and ask.', all: 'All service areas' },
   cta: {
-    title: 'Tell us about your yard',
-    text: 'Free estimates across Virginia. Call, text, or send a few details and we will get back to you.',
+    title: 'Send us a photo of your yard',
+    text: 'Free estimates in Northern Virginia. Call, text or WhatsApp. A photo or two helps us understand the job before we visit.',
   },
 
   servicesHub: {
@@ -121,13 +121,16 @@ const en = {
     ctaText: "Send your ZIP code with the estimate form, or just call. We'll tell you right away.",
   },
   gallery: {
-    title: 'Gallery',
-    intro: 'A look at the kind of yards we care for.',
-    notice: 'Sample photos for now. Photos of our own projects are coming soon.',
+    title: 'Our work',
+    intro: 'Real jobs from our crew in Northern Virginia, from first visit to finished yard.',
+    stages: { before: 'Before', during: 'During', after: 'After' },
+    viewService: 'See this service',
+    spotlightKicker: 'Recent project',
+    spotlightCta: 'See more of our work',
   },
   about: {
     title: "About Nino's Landscaping",
-    intro: 'A local landscaping company serving homeowners across Virginia.',
+    intro: 'A local landscaping crew taking care of homes across Northern Virginia.',
     p1: "Nino's Landscaping takes care of the whole yard: the lawn, the beds, the shrubs, and the water system underneath. Our logo is a sprinkler head for a reason. Irrigation and drainage are a big part of what we do, and they are what keep everything else green.",
     p2: 'We work in Fairfax, Loudoun, Prince William, Arlington and Alexandria, so we know the heavy clay soil, the humid summers and the freeze dates that shape every yard here.',
     expectTitle: 'What you can expect',
@@ -236,7 +239,7 @@ const es: Strings = {
   estimate: 'Estimado',
   quickContact: 'Contacto rápido',
   region: 'Virginia',
-  footerBlurb: 'Césped, riego, drenaje e iluminación exterior para casas en Virginia.',
+  footerBlurb: 'Césped, mulch y jardineras, poda, riego, drenaje e iluminación exterior para casas en el norte de Virginia.',
   company: 'Empresa',
   talk: 'Hable con nosotros',
   rights: 'Todos los derechos reservados.',
@@ -247,12 +250,12 @@ const es: Strings = {
   swipe: 'Deslice para ver más',
 
   hero: {
-    kicker: 'Jardinería y césped en Virginia',
+    kicker: 'Jardinería y césped en el norte de Virginia',
     title: 'Césped verde, jardines limpios y riego que funciona.',
-    lede: 'Corte de césped, mulch, poda, riego, drenaje e iluminación exterior para casas en Fairfax, Loudoun, Prince William y Arlington.',
+    lede: 'Corte de césped, mulch, piedra de río, poda, reparación de riego, drenaje e iluminación exterior para casas en Fairfax, Loudoun, Prince William, Arlington y Alexandria.',
   },
   homeServices: { title: 'Un solo equipo para todo el jardín', intro: 'Desde el césped hasta las tuberías de riego debajo. Elija un servicio para ver todo lo que incluye.' },
-  how: { title: 'Cómo trabajamos', intro: 'Sin presión y sin sorpresas. Recibe un precio claro antes de empezar cualquier trabajo.', titleAbout: 'Cómo trabajamos' },
+  how: { title: 'Cómo funciona', intro: 'Sin presión y sin sorpresas. Usted recibe un precio claro antes de empezar cualquier trabajo.', titleAbout: 'Cómo trabajamos' },
   timing: {
     title: 'Trabajamos todo el año',
     text: 'Llame o escríbanos cuando nos necesite y agendamos su proyecto.',
@@ -268,8 +271,8 @@ const es: Strings = {
   ],
   areasBlock: { title: 'Dónde trabajamos', intro: 'Casas en todo Virginia. ¿No sabe si llegamos a su calle? Llame o escríbanos.', all: 'Todas las áreas' },
   cta: {
-    title: 'Cuéntenos sobre su jardín',
-    text: 'Estimados gratis en Virginia. Llame, escriba o envíe algunos datos y le respondemos.',
+    title: 'Mándenos una foto de su jardín',
+    text: 'Estimados gratis en el norte de Virginia. Llame, escriba o mande un WhatsApp. Una o dos fotos nos ayudan a entender el trabajo antes de la visita.',
   },
 
   servicesHub: {
@@ -293,13 +296,16 @@ const es: Strings = {
     ctaText: 'Envíe su código postal con el formulario, o simplemente llame. Le decimos de inmediato.',
   },
   gallery: {
-    title: 'Galería',
-    intro: 'Una muestra del tipo de jardines que cuidamos.',
-    notice: 'Por ahora son fotos de muestra. Pronto subiremos fotos de nuestros propios trabajos.',
+    title: 'Nuestros trabajos',
+    intro: 'Trabajos reales de nuestro equipo en el norte de Virginia, desde la primera visita hasta el jardín terminado.',
+    stages: { before: 'Antes', during: 'Durante', after: 'Después' },
+    viewService: 'Ver este servicio',
+    spotlightKicker: 'Proyecto reciente',
+    spotlightCta: 'Ver más trabajos',
   },
   about: {
     title: "Sobre Nino's Landscaping",
-    intro: 'Una empresa local de jardinería que atiende casas en todo Virginia.',
+    intro: 'Un equipo local de jardinería que cuida casas en todo el norte de Virginia.',
     p1: "Nino's Landscaping cuida todo el jardín: el césped, las jardineras, los arbustos y el sistema de riego que está debajo. Nuestro logo es un aspersor por una razón. El riego y el drenaje son una gran parte de lo que hacemos, y son lo que mantiene todo lo demás verde.",
     p2: 'Trabajamos en Fairfax, Loudoun, Prince William, Arlington y Alexandria, así que conocemos el suelo arcilloso, los veranos húmedos y las heladas que marcan cada jardín de aquí.',
     expectTitle: 'Lo que puede esperar',

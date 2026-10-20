@@ -86,16 +86,18 @@ Mientras esté en `github.io`, el sitio se marca como **noindex** (Google no lo 
 | Textos de inicio / about / contacto | `src/pages/*.tsx` |
 | Colores y estilos | `src/styles/01-base.css` (variables al inicio) |
 
-### Reemplazar las fotos de prueba por fotos reales
+### Agregar fotos de trabajos
 
-1. Guarda la foto original en `src/photos/` (JPG, PNG o WebP, idealmente 2000 px o más; las fotos del celular sirven tal cual).
-2. En `src/content/images.ts` cambia, por ejemplo:
+Todas las fotos del sitio son trabajos reales de Nino.
+
+1. **Antes de subirla**, difumina números de casa, placas de carro y carteles con nombres (el repo es público).
+2. Guarda la foto en `src/photos/` con un nombre descriptivo (`servicio-proyecto-01-etapa.jpg`). Las fotos del celular sirven tal cual.
+3. En `src/content/images.ts` agrégala en `photos` con su texto alternativo en inglés y español:
    ```ts
-   lawnRows: { src: 'frente-casa-fairfax.jpg', alt: { en: 'Front yard in Fairfax', es: 'Jardín delantero en Fairfax' } },
+   frenteFairfax: p('jardineras-fairfax-01-despues.jpg', 'Front yard in Fairfax', 'Jardín delantero en Fairfax'),
    ```
-3. Al compilar se crean versiones WebP optimizadas (480 a 2000 px) y se borran los datos GPS de la foto.
-4. Borra esa foto de `CREDITS.md`. Cuando ya no quede ninguna de Unsplash, el sitio deja de permitir imágenes externas solo.
-5. En la galería, quita el aviso "fotos de muestra" (`gallery.notice` en `src/i18n.ts` y su uso en `src/pages/Other.tsx`).
+4. Para que salga en la galería, agrégala a un proyecto en `projects` (mismo archivo). La etapa (`before`, `during`, `after`) pone la etiqueta "Antes / Durante / Después".
+5. Al compilar se crean versiones WebP optimizadas (480 a 2000 px) y se borran los datos GPS de la foto.
 
 ---
 

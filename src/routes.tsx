@@ -44,8 +44,8 @@ const SEO: Record<Exclude<PageKey, 'home'>, Record<Lang, { title: string; descri
     es: { title: 'Áreas de servicio en Virginia', description: "Nino's Landscaping atiende casas en los condados de Fairfax, Loudoun y Prince William, Arlington y Alexandria, Virginia." },
   },
   gallery: {
-    en: { title: 'Gallery', description: "Lawns, beds, irrigation and lighting: the kind of yards Nino's Landscaping cares for in Virginia." },
-    es: { title: 'Galería', description: "Césped, jardineras, riego e iluminación: el tipo de jardines que cuida Nino's Landscaping en Virginia." },
+    en: { title: 'Our Work: Before & After in Northern VA', description: "Real before-and-after photos from Nino's Landscaping jobs in Northern Virginia: river rock beds, mulch, drainage, irrigation repair and aeration." },
+    es: { title: 'Nuestros trabajos: antes y después en Virginia', description: "Fotos reales de antes y después de trabajos de Nino's Landscaping en el norte de Virginia: piedra de río, mulch, drenaje, riego y aireación." },
   },
   about: {
     en: { title: 'About Us', description: "Nino's Landscaping is a local Virginia company for lawn care, irrigation, drainage and landscape lighting." },
@@ -97,8 +97,7 @@ function routesFor(l: Lang): Route[] {
       priority: 0.8,
     })),
     page('areas', l, () => <ServiceAreas />, { jsonLd: [crumbs(home, [t.nav.areas, pagePath('areas', l)])], sitemap: true, priority: 0.7 }),
-    // noindex + out of sitemap until real project photos replace the samples
-    page('gallery', l, () => <Gallery />, { noindex: true }),
+    page('gallery', l, () => <Gallery />, { jsonLd: [crumbs(home, [t.nav.gallery, pagePath('gallery', l)])], sitemap: true, priority: 0.7 }),
     page('about', l, () => <About />, { jsonLd: [crumbs(home, [t.nav.about, pagePath('about', l)])], sitemap: true, priority: 0.6 }),
     page('estimate', l, () => <FreeEstimate />, { jsonLd: [crumbs(home, [t.freeEstimate, pagePath('estimate', l)])], sitemap: true, priority: 0.9 }),
     page('contact', l, () => <Contact />, { jsonLd: [crumbs(home, [t.nav.contact, pagePath('contact', l)])], sitemap: true, priority: 0.6 }),

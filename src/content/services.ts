@@ -66,8 +66,8 @@ export const services: Service[] = [
       en: 'Most lawns in Virginia are tall fescue, a cool-season grass that looks great in spring and fall and struggles in July heat. We mow at the right height for the season, keep edges sharp, and schedule aeration and overseeding in early fall, when new seed has the best chance.',
       es: 'La mayoría del césped en Virginia es tall fescue, un césped de clima frío que se ve muy bien en primavera y otoño y sufre con el calor de julio. Cortamos a la altura correcta para cada temporada, dejamos los bordes bien definidos y hacemos la aireación y resiembra a principios del otoño, cuando la semilla nueva tiene más éxito.',
     },
-    photo: 'mower',
-    photoAlt: 'backyard',
+    photo: 'aerating',
+    photoAlt: 'beigeLawn',
     items: [
       {
         name: { en: 'Mowing, edging & blowing', es: 'Corte, bordes y soplado' },
@@ -131,23 +131,29 @@ export const services: Service[] = [
   {
     slug: { en: 'mulching-garden-beds', es: 'mulch-y-jardineras' },
     name: { en: 'Mulching & Garden Beds', es: 'Mulch y jardineras' },
-    menu: { en: 'Mulch & beds', es: 'Mulch' },
+    menu: { en: 'Mulch & beds', es: 'Mulch y jardineras' },
     icon: 'leaf',
     summary: {
-      en: 'Fresh mulch, crisp bed edges and new plantings that make the front yard look finished.',
-      es: 'Mulch nuevo, bordes bien cortados y plantas nuevas que dejan el frente de la casa impecable.',
+      en: 'Fresh mulch, river rock, crisp edges and new plantings that make the front yard look finished.',
+      es: 'Mulch nuevo, piedra de río, bordes bien cortados y plantas nuevas que dejan el frente de la casa impecable.',
     },
     headline: { en: 'Mulching and garden beds', es: 'Mulch y jardineras' },
     intro: {
       en: 'A fresh layer of mulch holds moisture through Virginia summers, keeps weeds down and makes the whole yard look cared for. We cut a clean edge first, clear weeds, and spread mulch at the right depth, never piled against tree trunks.',
       es: 'Una capa nueva de mulch (mantillo) guarda la humedad en los veranos de Virginia, frena la maleza y hace que todo el jardín se vea cuidado. Primero cortamos un borde limpio, quitamos la maleza y ponemos el mulch a la profundidad correcta, nunca amontonado contra los troncos.',
     },
-    photo: 'mulchEdge',
-    photoAlt: 'flowerBed',
+    photo: 'fallPorch',
+    photoAlt: 'rockAfterBoth',
     items: [
       {
         name: { en: 'Mulch installation', es: 'Instalación de mulch' },
-        text: { en: 'Double-shredded hardwood, dyed black or brown, or pine needles.', es: 'Madera triturada, teñida negra o café, o pinocha (agujas de pino).' },
+        text: { en: 'Double-shredded hardwood, dyed black or brown, or pine straw.', es: 'Madera triturada, teñida negra o café, o agujas de pino (pine straw).' },
+      },
+      {
+        name: { en: 'River rock beds', es: 'Jardineras de piedra de río' },
+        text: { en: 'Weed fabric underneath and a clean stone edge, for beds that stay neat with little upkeep.', es: 'Malla antimaleza debajo y un borde de piedra limpio, para jardineras ordenadas con poco mantenimiento.' },
+        // installs over $1,000 may count as LSC work (PLAN §11): confirm with Nino
+        license: 'DPOR-LSC',
       },
       {
         name: { en: 'Bed edging', es: 'Bordes de jardineras' },
@@ -191,8 +197,8 @@ export const services: Service[] = [
     ],
     seoTitle: { en: 'Mulching & Garden Beds in Virginia', es: 'Mulch y jardineras en Virginia' },
     seoDescription: {
-      en: 'Mulch installation, bed edging, weeding and planting for homes across Virginia. Free estimates.',
-      es: 'Instalación de mulch, bordes, deshierbe y siembra de plantas para casas en Virginia. Estimados gratis.',
+      en: 'Mulch installation, river rock beds, bed edging, weeding and planting for homes in Northern Virginia. Free estimates.',
+      es: 'Instalación de mulch, jardineras de piedra de río, bordes, deshierbe y siembra para casas en el norte de Virginia. Estimados gratis.',
     },
     enabled: true,
   },
@@ -210,8 +216,8 @@ export const services: Service[] = [
       en: 'Good trimming keeps shrubs dense and healthy, not just short. We shape hedges, thin out crowded shrubs and small ornamental trees, and cut back overgrowth from walkways, windows and fences.',
       es: 'Una buena poda mantiene los arbustos tupidos y sanos, no solo bajos. Damos forma a los setos, aclaramos arbustos y árboles ornamentales pequeños, y cortamos lo que invade caminos, ventanas y cercas.',
     },
-    photo: 'hedgeHouse',
-    photoAlt: 'hedgeClose',
+    photo: 'beigeBeds',
+    photoAlt: 'brickWalk',
     items: [
       {
         name: { en: 'Hedge & shrub trimming', es: 'Recorte de setos y arbustos' },
@@ -269,8 +275,8 @@ export const services: Service[] = [
       en: 'Irrigation is the heart of what we do. It is even in our logo. We install new systems, fix broken heads and leaks, turn systems on in spring and blow them out in fall so pipes do not crack in a Virginia freeze.',
       es: 'El riego es el corazón de lo que hacemos. Hasta está en nuestro logo. Instalamos sistemas nuevos, arreglamos aspersores rotos y fugas, encendemos el sistema en primavera y lo vaciamos con aire en otoño para que las tuberías no se rompan con las heladas de Virginia.',
     },
-    photo: 'sprinklerSunset',
-    photoAlt: 'sprinklerLight',
+    photo: 'irrigationRepair',
+    photoAlt: 'valveBox',
     license: 'DPOR-ISC',
     items: [
       {
@@ -331,7 +337,7 @@ export const services: Service[] = [
     seoTitle: { en: 'Sprinkler Repair & Installation in Virginia', es: 'Instalación y reparación de riego en Virginia' },
     seoDescription: {
       en: 'Irrigation system installation, sprinkler repair, spring start-up, fall winterization and smart controllers in Virginia. Free estimates.',
-      es: 'Instalación de sistemas de riego, reparación de aspersores, arranque de primavera, cierre de invierno y controladores inteligentes en Virginia. Estimados gratis.',
+      es: 'Instalación y reparación de riego, arranque de primavera, cierre de invierno y controladores inteligentes en Virginia. Estimados gratis.',
     },
     enabled: true,
   },
@@ -349,8 +355,8 @@ export const services: Service[] = [
       en: 'Heavy clay soil and summer storms leave many Virginia yards soggy, with puddles that stay for days and water heading toward the foundation. We find where the water comes from and give it a better path, underground or on the surface.',
       es: 'La tierra arcillosa y las tormentas de verano dejan muchos jardines de Virginia encharcados, con charcos que duran días y agua que va hacia los cimientos. Encontramos de dónde viene el agua y le damos un mejor camino, bajo tierra o por la superficie.',
     },
-    photo: 'trench',
-    photoAlt: 'grate',
+    photo: 'drainDownspout',
+    photoAlt: 'drainTrench',
     license: 'DPOR-LSC',
     items: [
       {
@@ -359,7 +365,7 @@ export const services: Service[] = [
       },
       {
         name: { en: 'Downspout extensions & buried lines', es: 'Extensiones de bajantes y tubería enterrada' },
-        text: { en: 'Roof water sent underground to a safe spot instead of next to the foundation.', es: 'El agua del techo va bajo tierra a un lugar seguro en vez de quedarse junto a los cimientos.' },
+        text: { en: 'Roof water piped underground and released through a pop-up emitter, away from the foundation.', es: 'El agua del techo va por tubería enterrada y sale por un emisor (pop-up) lejos de los cimientos.' },
       },
       {
         name: { en: 'Catch basins', es: 'Rejillas de desagüe' },
@@ -391,7 +397,7 @@ export const services: Service[] = [
         },
       },
     ],
-    seoTitle: { en: 'French Drains & Yard Drainage in Virginia', es: 'Drenaje francés y drenaje de jardines en Virginia' },
+    seoTitle: { en: 'French Drains & Yard Drainage in Virginia', es: 'Drenaje francés y jardines encharcados en Virginia' },
     seoDescription: {
       en: 'French drains, downspout extensions, catch basins, dry creek beds and grading to fix wet yards in Virginia. Free estimates.',
       es: 'Drenajes franceses, extensiones de bajantes, rejillas, cauces de piedra y nivelación para jardines encharcados en Virginia. Estimados gratis.',
@@ -412,8 +418,7 @@ export const services: Service[] = [
       en: 'The right lights make a home safer to walk around at night and show off the work you put into the yard. We install low-voltage LED fixtures that use little power and last for years.',
       es: 'Una buena iluminación hace más seguro caminar de noche alrededor de la casa y luce el trabajo que puso en su jardín. Instalamos lámparas LED de bajo voltaje que gastan poca energía y duran años.',
     },
-    photo: 'pathLight',
-    photoAlt: 'bushLights',
+    photo: 'nightLighting',
     items: [
       {
         name: { en: 'Path & walkway lights', es: 'Luces de caminos y senderos' },
@@ -474,8 +479,8 @@ export const services: Service[] = [
       en: 'Virginia yards collect a lot over winter and fall: leaves, fallen branches and matted beds. A cleanup clears it all and gets the lawn and beds ready for the next season.',
       es: 'Los jardines de Virginia acumulan mucho en otoño e invierno: hojas, ramas caídas y jardineras apelmazadas. Una limpieza lo saca todo y deja el césped y las jardineras listos para la próxima temporada.',
     },
-    photo: 'leaves',
-    photoAlt: 'autumnHouse',
+    photo: 'fallEntry',
+    photoAlt: 'fallSteps',
     items: [
       {
         name: { en: 'Spring cleanup', es: 'Limpieza de primavera' },
@@ -525,8 +530,8 @@ export const services: Service[] = [
       en: 'Paver patios, walkways and retaining walls built on a properly compacted base so they stay level.',
       es: 'Patios de adoquín, caminos y muros de contención sobre una base bien compactada para que no se hundan.',
     },
-    photo: 'patio',
-    photoAlt: 'steps',
+    photo: 'rockEdge',
+    photoAlt: 'rockCorner',
     license: 'DPOR-LSC',
     items: [
       { name: { en: 'Paver patios', es: 'Patios de adoquín' }, text: { en: 'Built on a compacted gravel base.', es: 'Sobre una base de grava compactada.' } },

@@ -2,22 +2,31 @@ import { business, serviceAreas } from '../site.config'
 import { activeServices } from '../content/services'
 import { href } from '../lib/url'
 import { pagePath, s, tr } from '../i18n'
-import { CtaBand, Photo, SectionHead, ServiceTile, SprinklerArc, Steps } from '../components/Blocks'
+import { projects, type Project } from '../content/images'
+import { CtaBand, Photo, ProjectPhotos, SectionHead, ServiceTile, SprinklerArc, Steps } from '../components/Blocks'
 import { tel, whatsappUrl } from '../components/Chrome'
 import { Icon } from '../components/Icon'
+
+/** One photo per stage for the home-page spotlight */
+const SPOTLIGHT_PHOTOS: Project['photos'] = [
+  { key: 'rockBefore', stage: 'before' },
+  { key: 'rockFabricBoth', stage: 'during' },
+  { key: 'rockAfterBoth', stage: 'after' },
+]
 
 export function Home() {
   const t = s()
   const featured = activeServices.find((sv) => sv.slug.en === 'irrigation') ?? activeServices[0]
   const rest = activeServices.filter((sv) => sv !== featured)
   const wa = whatsappUrl()
+  const spotlight = projects.find((pr) => pr.id === 'townhouse-rock' && activeServices.some((sv) => sv.slug.en === pr.service))
 
   return (
     <>
       {/* HERO */}
       <section className="hero" aria-labelledby="hero-title">
         <div className="hero__media">
-          <Photo name="lawnRows" width={2000} sizes="100vw" priority />
+          <Photo name="fallFront" width={2000} sizes="100vw" priority />
         </div>
         <SprinklerArc />
         <div className="wrap hero__content">
@@ -67,6 +76,23 @@ export function Home() {
         </div>
       </section>
 
+      {/* RECENT PROJECT: before → during → after */}
+      {spotlight ? (
+        <section className="section" aria-labelledby="spotlight-title">
+          <div className="wrap">
+            <div className="section-head">
+              <p className="kicker">{t.gallery.spotlightKicker}</p>
+              <h2 id="spotlight-title">{tr(spotlight.title)}</h2>
+              <p>{tr(spotlight.text)}</p>
+            </div>
+            <ProjectPhotos items={SPOTLIGHT_PHOTOS} />
+            <p className="more-link">
+              <a href={href(pagePath('gallery'))}>{t.gallery.spotlightCta}</a>
+            </p>
+          </div>
+        </section>
+      ) : null}
+
       {/* HOW IT WORKS */}
       <section className="section section--tint" aria-labelledby="steps-title">
         <div className="wrap split">
@@ -75,7 +101,7 @@ export function Home() {
             <Steps />
           </div>
           <div className="split__media">
-            <Photo name="mulchEdge" width={1000} sizes="(min-width: 960px) 45vw, 100vw" className="rounded-tall" />
+            <Photo name="drainDig" width={1000} sizes="(min-width: 960px) 45vw, 100vw" className="rounded-tall" />
           </div>
         </div>
       </section>
